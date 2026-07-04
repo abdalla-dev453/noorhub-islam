@@ -1,10 +1,12 @@
 import { BENEFITS } from "../data/constants";
-import { OctagonBadge } from "./ui/Primitives";
+import { EmojiImage, OctagonBadge } from "./ui/Primitives";
 
 function BenefitCard({ icon, title, desc, accent }) {
   return (
     <div className="benefit-card">
-      <OctagonBadge color={accent}>{icon}</OctagonBadge>
+      <OctagonBadge color={accent}>
+        <EmojiImage src={icon} alt="" size={24} />
+      </OctagonBadge>
 
       <h3
         style={{

@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
-import { GeometricPattern } from "./ui/Primitives";
+import { EmojiImage, GeometricPattern } from "./ui/Primitives";
 import Register from "../pages/Register";
+import { EMOJI_ASSET_URLS } from "../data/constants";
 
 export default function CTASection({ scrollTo }) {
   return (
@@ -112,9 +113,35 @@ export default function CTASection({ scrollTo }) {
         </div>
 
         {/* Trust badges */}
-        <p style={{ fontSize: 13, color: "#44425a" }}>
-          ✦ Free forever for core features &nbsp;·&nbsp; ✦ No ads, ever
-          &nbsp;·&nbsp; ✦ Built by Muslims, for Muslims
+        <p
+          style={{
+            fontSize: 13,
+            color: "#44425a",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            flexWrap: "wrap",
+          }}
+        >
+          <span
+            style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+          >
+            <EmojiImage src={EMOJI_ASSET_URLS.sparkle} alt="" size={12} />
+            Free forever for core features
+          </span>
+          <span
+            style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+          >
+            <EmojiImage src={EMOJI_ASSET_URLS.sparkle} alt="" size={12} />
+            No ads, ever
+          </span>
+          <span
+            style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+          >
+            <EmojiImage src={EMOJI_ASSET_URLS.sparkle} alt="" size={12} />
+            Built by Muslims, for Muslims
+          </span>
         </p>
       </div>
     </section>

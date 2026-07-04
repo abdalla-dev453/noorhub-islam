@@ -1,5 +1,5 @@
-import { GeometricPattern } from "./ui/Primitives";
-import { QURAN_FEATURES } from "../data/constants";
+import { EmojiImage, GeometricPattern } from "./ui/Primitives";
+import { EMOJI_ASSET_URLS, QURAN_FEATURES } from "../data/constants";
 
 function AyahCard() {
   return (
@@ -171,7 +171,7 @@ export default function QuranShowcase() {
                 }}
               >
                 <span style={{ color: "#22d3a5", marginTop: 2, flexShrink: 0 }}>
-                  ✓
+                  <EmojiImage src={EMOJI_ASSET_URLS.check} alt="" size={14} />
                 </span>
                 {feature}
               </div>

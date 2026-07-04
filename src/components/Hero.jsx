@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { GeometricPattern } from "./ui/Primitives";
-import { AVATAR_COLORS } from "../data/constants";
+import { EmojiImage, GeometricPattern } from "./ui/Primitives";
+import { AVATAR_COLORS, EMOJI_ASSET_URLS } from "../data/constants";
 
 const COUNT_TARGET = 12847;
 
@@ -77,7 +77,12 @@ export default function Hero({ scrollTo }) {
       >
         {/* Badge */}
         <div className="hero-badge">
-          <span style={{ fontSize: 10 }}>✦</span>
+          <EmojiImage
+            src={EMOJI_ASSET_URLS.sparkle}
+            alt=""
+            size={12}
+            style={{ marginRight: 6 }}
+          />
           Now open to all Muslims worldwide
         </div>
 

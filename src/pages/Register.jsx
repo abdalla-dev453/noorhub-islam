@@ -2,8 +2,13 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 export default function Register() {
-  const navigate = useNavigate(); // 🆕 Hook to handle programmatic redirects
-  const [formData, setFormData] = useState({ name: "", email: "", password: "", confirmPassword: "" });
+  const navigate = useNavigate(); // Hook to handle programmatic redirects
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+  });
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -12,8 +17,8 @@ export default function Register() {
       return;
     }
     console.log("Registering persistent storage node profile:", formData);
-    
-    // ⚡ REDIRECT TRIGGER: Send user to the Login page automatically after creating an account
+
+    // Redirect trigger: send user to the login page automatically after creating an account
     navigate("/login");
   };
 
@@ -42,7 +47,9 @@ export default function Register() {
               placeholder="Abdullah"
               className="noor-input"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
             />
           </div>
 
@@ -56,7 +63,9 @@ export default function Register() {
               placeholder="name@example.com"
               className="noor-input"
               value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, email: e.target.value })
+              }
             />
           </div>
 
@@ -70,7 +79,9 @@ export default function Register() {
               placeholder="••••••••"
               className="noor-input"
               value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, password: e.target.value })
+              }
             />
           </div>
 
@@ -84,7 +95,9 @@ export default function Register() {
               placeholder="••••••••"
               className="noor-input"
               value={formData.confirmPassword}
-              onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, confirmPassword: e.target.value })
+              }
             />
           </div>
 

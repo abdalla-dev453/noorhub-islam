@@ -1,4 +1,5 @@
-import { TESTIMONIALS } from "../data/constants";
+import { EMOJI_ASSET_URLS, TESTIMONIALS } from "../data/constants";
+import { EmojiImage } from "./ui/Primitives";
 
 function TestimonialCard({ initials, name, loc, quote }) {
   return (
@@ -14,7 +15,7 @@ function TestimonialCard({ initials, name, loc, quote }) {
         }}
       >
         {[...Array(5)].map((_, i) => (
-          <span key={i}>★</span>
+          <EmojiImage key={i} src={EMOJI_ASSET_URLS.star} alt="" size={14} />
         ))}
       </div>
 

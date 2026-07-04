@@ -1,5 +1,25 @@
 import { useId, useState } from "react";
 
+export function EmojiImage({ src, alt = "", size = 16, style = {}, ...props }) {
+  return (
+    <img
+      src={src}
+      alt={alt}
+      width={size}
+      height={size}
+      loading="lazy"
+      style={{
+        display: "inline-block",
+        width: size,
+        height: size,
+        objectFit: "contain",
+        ...style,
+      }}
+      {...props}
+    />
+  );
+}
+
 // ── Islamic geometric SVG tile ──────────────────────────────────────────────
 export function GeometricPattern({
   style = {},
