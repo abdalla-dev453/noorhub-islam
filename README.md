@@ -1,9 +1,28 @@
-#  NoorHub
 
-An elegant, high-utility digital workspace combining verified Islamic resources, classical texts, and responsive academic learning tracks within a distraction-free, premium dark UI environment.
+# NoorHub
 
----
+A frontend web platform for the Muslim community, built with React and 
+Tailwind CSS using a modular, feature-based architecture.
 
+## Overview
+
+NoorHub was built with scalability in mind — rather than a flat component 
+structure, the codebase is organized by feature, keeping related components, 
+logic, and styles together. This makes the app easier to extend and 
+maintain as new features are added.
+
+## Features
+
+- 🕌 [Add your platform's actual features here — e.g. prayer times, 
+  Quran resources, community content]
+- 🧩 Modular, feature-based folder structure
+- 🎨 Styled with Tailwind CSS
+- ⚛️ Built entirely with React
+
+## Tech Stack
+
+**Frontend:** React, Tailwind CSS  
+**Architecture:** Feature-based modular structure
 ##  Features Matrix
 
 - ** Interactive Quran Hub**: Complete Surah index streaming authentic English translations in parallel with classical Arabic text.
