@@ -1,10 +1,11 @@
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useMemo,
-  useCallback,
-} from "react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  BookOpen,
+  RefreshCw,
+  Search,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../utils/api";
 import {
   filterNarrations,
@@ -27,7 +28,7 @@ const BATCH_SIZE = 20;
 const HIGHLIGHT_PATTERNS = [
   {
     regex: /\b(Allah|God|The Lord|Almighty)\b/gi,
-    className: "text-red-400 font-semibold",
+    className: "text-[var(--accent)] font-semibold",
   },
   {
     regex:
@@ -39,10 +40,6 @@ const HIGHLIGHT_PATTERNS = [
     className: "text-sky-400 font-semibold",
   },
   { regex: /\(([^)]+)\)/g, className: "text-amber-300 font-medium" },
-  {
-    regex: /\b(very|truly|indeed|certainly|always)\b/gi,
-    className: "text-violet-400 font-medium",
-  },
 ];
 
 function renderHighlightedText(text) {
@@ -99,9 +96,7 @@ export default function Hadith() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
-  const [fallbackNote, setFallbackNote] = useState(false);
 
-  // A ref to abort in-flight network requests if the user clicks back instantly.
   const abortControllerRef = useRef(null);
 
   const normalizedSearch = useMemo(() => search.trim().toLowerCase(), [search]);
@@ -120,7 +115,6 @@ export default function Hadith() {
     setActiveBook(book);
     setLoading(true);
     setError(false);
-    setFallbackNote(false);
     setVisibleCount(BATCH_SIZE);
     setSearch("");
 
@@ -133,12 +127,10 @@ export default function Hadith() {
         abortControllerRef.current.signal,
       );
       setAllNarrations(data);
-      setFallbackNote(false);
     } catch (err) {
       if (err.name !== "AbortError") {
         setError(true);
         setAllNarrations([]);
-        setFallbackNote(true);
       }
     } finally {
       setLoading(false);
@@ -164,65 +156,70 @@ export default function Hadith() {
   }, []);
 
   return (
-    <div className="space-y-12">
-      {/* Dynamic Sub-Header Block Layout */}
-      <div className="text-center space-y-4">
-        <span className="glow-badge">Prophetic Traditions</span>
-        <h1 className="text-4xl md:text-5xl gradient-heading">
-          Hadith Encyclopedia
-        </h1>
-        <p className="sub-heading">
-          Explore historical accounts and verified narrations from the primary
-          textual resources.
+    <div className="space-y-10">
+      {/* Header */}
+      <div className="text-center space-y-3">
+        <span className="label-badge">Prophetic Traditions</span>
+        <h1 className="section-title">Hadith Encyclopedia</h1>
+        <p className="section-sub">
+          Explore authentic narrations and teachings from the classical hadith
+          compilations.
         </p>
       </div>
 
       {!activeBook ? (
-        /* Main Catalog Selection Board Grid Matrix */
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+        /* Collection Selector */
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
           {REPOS.map((book) => (
             <div
               key={book.slug}
               onClick={() => selectBook(book)}
-              className="noor-card text-center group cursor-pointer space-y-4 py-8"
+              className="noor-card text-center group cursor-pointer space-y-4 py-8 hover:border-[var(--accent)]"
             >
-              <div className="w-12 h-12 rounded-2xl bg-teal-500/10 text-teal-400 font-bold flex items-center justify-center mx-auto text-sm font-mono border border-teal-500/20 group-hover:bg-teal-500 group-hover:text-slate-950 transition-all duration-300">
-                {book.key.toUpperCase()}
+              <div className="w-12 h-12 rounded-xl bg-[var(--surface-hover)] text-[var(--accent)] font-bold flex items-center justify-center mx-auto text-sm font-mono border border-[var(--border)] group-hover:bg-[var(--accent)] group-hover:text-slate-950 transition-colors">
+                <BookOpen size={20} />
               </div>
-              <h3 className="font-bold text-lg text-slate-200 group-hover:text-teal-400 transition-colors">
-                {book.title}
-              </h3>
-              <p className="text-xs text-slate-500 font-mono">
-                {book.total.toLocaleString()} Records loaded
-              </p>
-              <span className="text-[10px] tracking-widest text-slate-400 group-hover:text-teal-400 uppercase block font-semibold transition-colors pt-2">
-                Query Book →
+              <div className="space-y-1">
+                <h3 className="font-bold text-base text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
+                  {book.title}
+                </h3>
+                <p className="text-xs text-[var(--text-muted)] font-mono">
+                  {book.total.toLocaleString()} Narrations
+                </p>
+              </div>
+              <span className="text-xs font-semibold text-[var(--accent)] block pt-1">
+                Browse Collection →
               </span>
             </div>
           ))}
         </div>
       ) : (
-        /* Active Collection Narrative Content Panel Grid */
+        /* Active Collection */
         <div className="space-y-6 max-w-4xl mx-auto">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-900">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[var(--border)]">
             <button
               onClick={handleBack}
-              className="text-xs font-mono font-semibold tracking-wider text-teal-400 hover:text-white transition-colors self-start py-2"
+              className="inline-flex items-center gap-1.5 text-xs font-mono font-semibold tracking-wider text-[var(--accent)] hover:underline"
             >
-              ← BACK TO COLLECTIONS
+              <ArrowLeft size={14} />
+              Back to Collections
             </button>
-            <h2 className="text-2xl font-bold text-white font-serif tracking-tight">
+            <h2 className="text-xl font-bold text-[var(--text-primary)]">
               {activeBook.title}
             </h2>
           </div>
 
-          {/* Unified dynamic text filtering input frame control */}
+          {/* Search bar */}
           {!loading && !error && (
             <div className="relative">
+              <Search
+                size={16}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none"
+              />
               <input
                 type="text"
-                placeholder={`Search inside ${activeBook.title} by index or text keys...`}
-                className="noor-input"
+                placeholder={`Search inside ${activeBook.title}...`}
+                className="noor-input pl-10 pr-24"
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
@@ -230,7 +227,7 @@ export default function Hadith() {
                 }}
               />
               {search && (
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] bg-slate-900 border border-slate-800 text-slate-400 px-2 py-0.5 rounded font-mono">
+                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] bg-[var(--surface)] border border-[var(--border)] text-[var(--text-muted)] px-2 py-0.5 rounded font-mono">
                   {activeFilteredTotal} matches
                 </span>
               )}
@@ -238,82 +235,66 @@ export default function Hadith() {
           )}
 
           {loading && (
-            <div className="space-y-6" aria-live="polite">
-              <div className="noor-card space-y-4 animate-pulse">
-                <div className="h-4 w-24 rounded bg-slate-800" />
-                <div className="h-4 w-full rounded bg-slate-800/80" />
-                <div className="h-4 w-5/6 rounded bg-slate-800/70" />
-                <div className="h-4 w-4/5 rounded bg-slate-800/60" />
+            <div className="space-y-4 py-8" aria-live="polite">
+              <div className="noor-card space-y-3 animate-pulse">
+                <div className="h-4 w-24 rounded bg-[var(--surface-hover)]" />
+                <div className="h-4 w-full rounded bg-[var(--surface-hover)]" />
+                <div className="h-4 w-4/5 rounded bg-[var(--surface-hover)]" />
               </div>
-              <div className="noor-card space-y-4 animate-pulse">
-                <div className="h-4 w-20 rounded bg-slate-800" />
-                <div className="h-4 w-full rounded bg-slate-800/80" />
-                <div className="h-4 w-3/4 rounded bg-slate-800/70" />
-              </div>
-              <div className="noor-card space-y-4 animate-pulse">
-                <div className="h-4 w-28 rounded bg-slate-800" />
-                <div className="h-4 w-full rounded bg-slate-800/80" />
-                <div className="h-4 w-2/3 rounded bg-slate-800/70" />
+              <div className="noor-card space-y-3 animate-pulse">
+                <div className="h-4 w-20 rounded bg-[var(--surface-hover)]" />
+                <div className="h-4 w-full rounded bg-[var(--surface-hover)]" />
+                <div className="h-4 w-3/4 rounded bg-[var(--surface-hover)]" />
               </div>
             </div>
           )}
 
           {error && (
             <div className="noor-card border-red-500/20 text-center py-8 max-w-md mx-auto space-y-3">
+              <AlertCircle size={24} className="text-red-400 mx-auto" />
               <p className="text-sm text-red-400">
-                Failed to stream target text data node blocks.
+                Could not load hadith records. Please try again.
               </p>
-              {fallbackNote && (
-                <p className="text-xs text-slate-400 font-mono">
-                  A fallback source is being used. If this persists, please try
-                  again shortly.
-                </p>
-              )}
               <button
                 onClick={() => selectBook(activeBook)}
-                className="mt-3 text-xs text-teal-400 underline font-mono"
+                className="btn btn-secondary text-xs py-1.5 px-4"
               >
-                Retry with fallback source
+                <RefreshCw size={13} />
+                Retry
               </button>
             </div>
           )}
 
           {!loading && !error && (
-            <div className="space-y-6">
-              {filteredNarrations.map((item, index) => (
-                <div
-                  key={item.id}
-                  className="noor-card relative overflow-hidden group animate-[fadeIn_250ms_ease-out]"
-                  style={{ animationDelay: `${index * 40}ms` }}
-                >
-                  <div className="absolute top-0 left-0 w-1 h-full bg-linear-to-b from-teal-500/40 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
-                  <div className="flex items-center gap-3 mb-3">
-                    <span className="text-xs font-mono px-2 py-0.5 bg-slate-950/60 border border-slate-900 text-teal-400 font-bold rounded">
-                      Reference #{item.id}
+            <div className="space-y-4">
+              {filteredNarrations.map((item) => (
+                <div key={item.id} className="noor-card space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono px-2 py-0.5 bg-[var(--bg)] border border-[var(--border)] text-[var(--accent)] font-bold rounded">
+                      #{item.id}
                     </span>
                   </div>
-                  <p className="text-[15px] md:text-base text-slate-300 leading-8 font-serif tracking-wide pl-1.5 selection:bg-teal-500 selection:text-slate-950">
+                  <p className="text-sm sm:text-base text-[var(--text-primary)] leading-relaxed">
                     {renderHighlightedText(item.text)}
                   </p>
                 </div>
               ))}
 
-              {/* Dynamic Lazy Load Action Panel Element block */}
               {activeFilteredTotal > filteredNarrations.length && (
-                <div className="text-center pt-6">
+                <div className="text-center pt-4">
                   <button
                     onClick={loadMore}
-                    className="px-6 py-3 rounded-xl text-xs font-bold tracking-wider uppercase border border-slate-800 text-slate-300 bg-slate-900/20 hover:bg-slate-900 hover:text-teal-400 hover:border-teal-500/30 transition-all duration-200 shadow-md"
+                    className="btn btn-secondary text-xs py-2.5 px-6"
                   >
-                    Load More Traditions (
+                    Load More Narrations (
                     {activeFilteredTotal - filteredNarrations.length} remaining)
                   </button>
                 </div>
               )}
 
               {filteredNarrations.length === 0 && (
-                <div className="text-center text-slate-500 py-12 text-sm font-mono">
-                  No narrations match your text filter query parameters.
+                <div className="text-center text-[var(--text-muted)] py-12 text-sm font-mono">
+                  No narrations match your search query.
                 </div>
               )}
             </div>

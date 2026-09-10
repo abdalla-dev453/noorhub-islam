@@ -1,11 +1,10 @@
-import React from "react";
-import { StarField, Divider } from "../components/ui/Primitives";
-import Hero from "../components/Hero";
-import StatsStrip from "../components/StatsStrip";
 import Benefits from "../components/Benefits";
-import QuranShowcase from "../components/QuranShowcase";
-import Testimonials from "../components/Testimonials";
 import CTASection from "../components/CTASection";
+import Hero from "../components/Hero";
+import QuranShowcase from "../components/QuranShowcase";
+import StatsStrip from "../components/StatsStrip";
+import Testimonials from "../components/Testimonials";
+import { Divider } from "../components/ui/Primitives";
 
 const scrollTo = (id) => {
   const element = document.getElementById(id);
@@ -14,25 +13,17 @@ const scrollTo = (id) => {
   }
 };
 
-const Home = () => {
+export default function Home() {
   return (
-    <div className="home-page">
-      <StarField />
-      <main className="home-content">
-        <Hero scrollTo={scrollTo} />
-        <Divider />
-        <StatsStrip />
-        <Divider />
-        <Benefits />
-        <Divider />
-        <QuranShowcase />
-        <Divider />
-        <Testimonials />
-        <Divider />
-        <CTASection scrollTo={scrollTo} />
-      </main>
+    <div className="space-y-4">
+      <Hero scrollTo={scrollTo} />
+      <StatsStrip />
+      <Benefits />
+      <Divider />
+      <QuranShowcase />
+      <Divider />
+      <Testimonials />
+      <CTASection scrollTo={scrollTo} />
     </div>
   );
-};
-
-export default Home;
+}

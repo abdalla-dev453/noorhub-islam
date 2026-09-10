@@ -1,59 +1,30 @@
-import { EMOJI_ASSET_URLS, TESTIMONIALS } from "../data/constants";
-import { EmojiImage } from "./ui/Primitives";
+import { Star, Quote, Heart } from "lucide-react";
+import { TESTIMONIALS } from "../data/constants";
 
 function TestimonialCard({ initials, name, loc, quote }) {
   return (
-    <div className="testimonial-card">
-      {/* Stars */}
-      <div
-        style={{
-          display: "flex",
-          color: "#f59e0b",
-          fontSize: 14,
-          gap: 2,
-          marginBottom: 16,
-        }}
-      >
+    <div className="noor-card p-6 space-y-4 group hover-elevate transition-all duration-300 relative">
+      <Quote size={24} className="text-[var(--accent)] opacity-20 absolute top-5 right-5 pointer-events-none group-hover:opacity-40 transition-opacity" />
+      
+      {/* 5-star row with gold shimmer */}
+      <div className="flex gap-1 text-amber-400">
         {[...Array(5)].map((_, i) => (
-          <EmojiImage key={i} src={EMOJI_ASSET_URLS.star} alt="" size={14} />
+          <Star key={i} size={14} fill="currentColor" strokeWidth={0} className="drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]" />
         ))}
       </div>
 
-      <p
-        style={{
-          fontSize: 14,
-          lineHeight: 1.7,
-          color: "#9896b0",
-          marginBottom: 20,
-        }}
-      >
-        "{quote}"
+      <p className="text-sm text-[var(--text-secondary)] leading-relaxed font-normal italic">
+        &ldquo;{quote}&rdquo;
       </p>
 
       {/* Author */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <div
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: "50%",
-            background: "linear-gradient(135deg, #22d3a5, #a78bfa)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 12,
-            fontWeight: 700,
-            color: "#060810",
-            flexShrink: 0,
-          }}
-        >
+      <div className="flex items-center gap-3 pt-2 border-t border-[var(--border)]">
+        <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-teal-600 to-emerald-400 flex items-center justify-center text-xs font-bold text-slate-950 shadow-md shrink-0">
           {initials}
         </div>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#e8e6f0" }}>
-            {name}
-          </div>
-          <div style={{ fontSize: 12, color: "#5a5870" }}>{loc}</div>
+          <p className="text-sm font-bold text-[var(--text-primary)]">{name}</p>
+          <p className="text-xs text-[var(--text-muted)] font-mono">{loc}</p>
         </div>
       </div>
     </div>
@@ -62,35 +33,24 @@ function TestimonialCard({ initials, name, loc, quote }) {
 
 export default function Testimonials() {
   return (
-    <section
-      id="about"
-      style={{ padding: "96px 24px", position: "relative", zIndex: 1 }}
-    >
-      <div style={{ maxWidth: 960, margin: "0 auto" }}>
-        {/* Header */}
-        <div style={{ textAlign: "center", marginBottom: 52 }}>
-          <div className="section-eyebrow">Community</div>
-          <h2
-            style={{
-              fontSize: 38,
-              fontWeight: 700,
-              letterSpacing: "-0.025em",
-              color: "#f0eeff",
-            }}
-          >
-            The Ummah is already here
+    <section id="about" className="py-20 px-6 relative">
+      <div className="max-w-5xl mx-auto space-y-12">
+        <div className="text-center space-y-3">
+          <span className="label-badge gold-badge">
+            <Heart size={12} className="text-amber-400" />
+            Loved by the Ummah
+          </span>
+          <h2 className="section-title">
+            Trusted by seekers of knowledge
+            <br />
+            <span className="text-[var(--accent)]">across 40+ nations</span>
           </h2>
+          <p className="section-sub">
+            Real stories from Muslims who transformed their daily Quran, Hadith, and Islamic study habits with NoorHub.
+          </p>
         </div>
 
-        {/* Cards */}
-        <div
-          className="testimonials-grid"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: 16,
-          }}
-        >
+        <div className="testimonials-grid">
           {TESTIMONIALS.map((t) => (
             <TestimonialCard key={t.name} {...t} />
           ))}

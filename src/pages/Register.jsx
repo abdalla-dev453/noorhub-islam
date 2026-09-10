@@ -1,123 +1,178 @@
+import { AlertCircle, UserPlus } from "lucide-react";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 export default function Register() {
-  const navigate = useNavigate(); // Hook to handle programmatic redirects
+  const navigate = useNavigate();
+  const { register } = useAuth();
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     password: "",
     confirmPassword: "",
   });
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState([]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setErrors([]);
+
     if (formData.password !== formData.confirmPassword) {
-      alert("Passwords do not match!");
+      setErrors(["Passwords do not match."]);
       return;
     }
-    console.log("Registering persistent storage node profile:", formData);
 
-    // Redirect trigger: send user to the login page automatically after creating an account
-    navigate("/login");
+    if (formData.password.length < 8) {
+      setErrors(["Password must be at least 8 characters long."]);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const res = await register({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (res.errors) {
+        setErrors(res.errors);
+      } else {
+        navigate("/learn");
+      }
+    } catch {
+      setErrors(["An unexpected error occurred. Please try again."]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-[75vh] flex items-center justify-center relative overflow-hidden px-4 py-8">
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 `w-[400px]` `h-[400px`] bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
-
-      <div className="noor-card w-full max-w-md space-y-8 relative overflow-hidden p-8 md:p-10">
-        <div className="absolute inset-0 opacity-[0.015] pointer-events-none geometric-overlay" />
-
-        <div className="text-center space-y-2 relative z-10">
-          <h1 className="text-3xl font-bold gradient-heading">Join NoorHub</h1>
-          <p className="text-slate-400 text-sm">
-            Create an open-source student profile to track your study goals.
+    <div className="min-h-[70vh] flex items-center justify-center px-4 py-8">
+      <div className="noor-card w-full max-w-md space-y-6 p-6 sm:p-8">
+        <div className="text-center space-y-2">
+          <span className="label-badge">Registration</span>
+          <h1 className="text-2xl sm:text-3xl font-bold text-[var(--text-primary)]">
+            Join NoorHub
+          </h1>
+          <p className="text-sm text-[var(--text-secondary)]">
+            Create an account to track your study goals and Quran recitations.
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5 relative z-10">
+        {errors.length > 0 && (
+          <div className="p-3.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-start gap-2">
+            <AlertCircle size={16} className="shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              {errors.map((err, i) => (
+                <p key={i}>{err}</p>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-xs font-mono font-semibold tracking-wider text-slate-400 uppercase">
+            <label className="text-xs font-mono font-semibold tracking-wider text-[var(--text-secondary)] uppercase">
               Full Name
             </label>
             <input
               type="text"
               required
+              autoComplete="name"
               placeholder="Abdullah"
               className="noor-input"
               value={formData.name}
               onChange={(e) =>
                 setFormData({ ...formData, name: e.target.value })
               }
+              disabled={loading}
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-mono font-semibold tracking-wider text-slate-400 uppercase">
+            <label className="text-xs font-mono font-semibold tracking-wider text-[var(--text-secondary)] uppercase">
               Email Address
             </label>
             <input
               type="email"
               required
-              placeholder="name@example.com"
+              autoComplete="email"
+              placeholder="you@example.com"
               className="noor-input"
               value={formData.email}
               onChange={(e) =>
                 setFormData({ ...formData, email: e.target.value })
               }
+              disabled={loading}
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-mono font-semibold tracking-wider text-slate-400 uppercase">
+            <label className="text-xs font-mono font-semibold tracking-wider text-[var(--text-secondary)] uppercase">
               Password
             </label>
             <input
               type="password"
               required
-              placeholder="••••••••"
+              autoComplete="new-password"
+              placeholder="At least 8 characters"
               className="noor-input"
               value={formData.password}
               onChange={(e) =>
                 setFormData({ ...formData, password: e.target.value })
               }
+              disabled={loading}
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-mono font-semibold tracking-wider text-slate-400 uppercase">
+            <label className="text-xs font-mono font-semibold tracking-wider text-[var(--text-secondary)] uppercase">
               Confirm Password
             </label>
             <input
               type="password"
               required
-              placeholder="••••••••"
+              autoComplete="new-password"
+              placeholder="Re-enter password"
               className="noor-input"
               value={formData.confirmPassword}
               onChange={(e) =>
                 setFormData({ ...formData, confirmPassword: e.target.value })
               }
+              disabled={loading}
             />
           </div>
 
           <button
             type="submit"
-            className="w-full mt-2 py-3 rounded-xl `bg-gradient-to-r` from-teal-500 to-emerald-500 hover:brightness-110 text-red-600 font-bold tracking-wider uppercase text-xs transition-all duration-300 shadow-[0_0_20px_rgba(16,185,129,0.1)]"
+            disabled={loading}
+            className="w-full btn btn-primary py-3 text-sm font-bold tracking-wider uppercase mt-2"
           >
-            Create Account
+            {loading ? (
+              "Creating Account..."
+            ) : (
+              <>
+                <UserPlus size={15} />
+                Create Account
+              </>
+            )}
           </button>
         </form>
 
-        <div className="text-center pt-2 relative z-10">
-          <p className="text-xs text-slate-500">
+        <div className="text-center pt-2">
+          <p className="text-xs text-[var(--text-secondary)]">
             Already have an account?{" "}
-            <button
-              onClick={() => navigate("/login")}
-              className="text-teal-400 hover:text-teal-300 font-semibold underline transition-colors"
+            <Link
+              to="/login"
+              className="text-[var(--accent)] hover:underline font-semibold"
             >
               Sign In
-            </button>
+            </Link>
           </p>
         </div>
       </div>

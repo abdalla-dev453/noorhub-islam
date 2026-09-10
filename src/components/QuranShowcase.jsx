@@ -1,110 +1,66 @@
-import { EmojiImage, GeometricPattern } from "./ui/Primitives";
-import { EMOJI_ASSET_URLS, QURAN_FEATURES } from "../data/constants";
+import { CheckCircle2, Sparkles, Volume2, BookOpen } from "lucide-react";
+import { QURAN_FEATURES } from "../data/constants";
+import { GeometricPattern } from "./ui/Primitives";
+import { useNavigate } from "react-router-dom";
 
 function AyahCard() {
+  const navigate = useNavigate();
+
   return (
-    <div
-      style={{
-        background: "rgba(255,255,255,0.025)",
-        border: "1px solid rgba(255,255,255,0.07)",
-        borderRadius: 20,
-        padding: 32,
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
-      {/* Background geometry */}
+    <div className="noor-card relative overflow-hidden p-6 sm:p-8 space-y-6 group border-teal-500/20 hover:border-teal-500/40 shadow-xl">
+      {/* Background geometry pattern */}
       <GeometricPattern
         style={{
           position: "absolute",
           inset: 0,
           width: "100%",
           height: "100%",
-          opacity: 0.5,
+          opacity: 0.35,
+          pointerEvents: "none",
         }}
-        color="#a78bfa"
       />
 
-      <div style={{ position: "relative", zIndex: 1 }}>
-        {/* Arabic text */}
-        <div
-          style={{
-            fontFamily: "'Amiri', serif",
-            fontSize: 28,
-            color: "#e8e6f0",
-            lineHeight: 1.8,
-            marginBottom: 16,
-            textAlign: "right",
-            direction: "rtl",
-          }}
+      {/* Subtle glowing radial gradient in the card */}
+      <div className="pointer-events-none absolute -bottom-10 -right-10 w-48 h-48 bg-[radial-gradient(circle,rgba(20,184,166,0.15)_0%,transparent_70%)] blur-2xl" />
+
+      <div className="relative z-10 space-y-5">
+        <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
+          <div className="flex items-center gap-2">
+            <span className="label-badge gold-badge text-[11px] py-1">At-Talaq 65:2</span>
+            <span className="text-xs font-mono px-2.5 py-0.5 rounded-full border border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)]">
+              Madani
+            </span>
+          </div>
+          <button
+            onClick={() => navigate("/quran")}
+            className="flex items-center gap-1 text-xs font-mono text-[var(--accent)] hover:underline"
+          >
+            <Volume2 size={13} />
+            <span>Listen</span>
+          </button>
+        </div>
+
+        {/* Arabic verse */}
+        <p
+          className="arabic text-2xl sm:text-3xl text-[var(--text-primary)] text-right leading-loose tracking-wide"
+          lang="ar"
         >
           وَمَن يَتَّقِ اللَّهَ يَجْعَل لَّهُ مَخْرَجًا
-        </div>
+        </p>
 
         {/* Translation */}
-        <div
-          style={{
-            fontSize: 14,
-            color: "#7a7894",
-            fontStyle: "italic",
-            marginBottom: 16,
-          }}
-        >
-          "And whoever fears Allah — He will make for him a way out."
-        </div>
-
-        {/* Tags */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
-          <span
-            style={{
-              background: "rgba(34,211,165,0.1)",
-              border: "1px solid rgba(34,211,165,0.2)",
-              borderRadius: 6,
-              padding: "3px 10px",
-              fontSize: 12,
-              color: "#22d3a5",
-            }}
-          >
-            At-Talaq 65:2
-          </span>
-          <span
-            style={{
-              background: "rgba(167,139,250,0.1)",
-              border: "1px solid rgba(167,139,250,0.2)",
-              borderRadius: 6,
-              padding: "3px 10px",
-              fontSize: 12,
-              color: "#a78bfa",
-            }}
-          >
-            Meccan
-          </span>
-        </div>
+        <p className="text-sm sm:text-base text-[var(--text-secondary)] italic font-serif leading-relaxed">
+          &ldquo;And whoever is mindful of Allah — He will make for them a way out.&rdquo;
+        </p>
 
         {/* Tafsir excerpt */}
-        <div
-          style={{
-            padding: 16,
-            background: "rgba(0,0,0,0.3)",
-            borderRadius: 10,
-            border: "1px solid rgba(255,255,255,0.05)",
-          }}
-        >
-          <div
-            style={{
-              fontSize: 12,
-              color: "#5a5870",
-              marginBottom: 6,
-              textTransform: "uppercase",
-              letterSpacing: "0.08em",
-            }}
-          >
-            Tafsir Ibn Kathir
+        <div className="p-4 rounded-xl bg-[var(--surface-glass)] border border-[var(--border)] space-y-1.5 backdrop-blur-sm">
+          <div className="text-[11px] font-mono font-semibold uppercase tracking-wider text-[var(--accent)] flex items-center gap-1.5">
+            <Sparkles size={12} />
+            Classical Commentary (Tafsir)
           </div>
-          <p style={{ fontSize: 13, color: "#7a7894", lineHeight: 1.65 }}>
-            This ayah was revealed as a direct comfort to 'Awf ibn Malik
-            al-Ansari, and carries a universal promise: taqwa is never without
-            its divine exit...
+          <p className="text-xs text-[var(--text-secondary)] leading-relaxed font-normal">
+            A timeless divine reassurance: sincere mindfulness (Taqwa) and complete reliance on Allah is consistently answered with relief from every hardship.
           </p>
         </div>
       </div>
@@ -113,69 +69,50 @@ function AyahCard() {
 }
 
 export default function QuranShowcase() {
-  return (
-    <section
-      id="quran"
-      style={{ padding: "96px 24px", position: "relative", zIndex: 1 }}
-    >
-      <div
-        className="feature-grid"
-        style={{
-          maxWidth: 1060,
-          margin: "0 auto",
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 60,
-          alignItems: "center",
-        }}
-      >
-        {/* Left: copy */}
-        <div>
-          <div className="section-eyebrow">Quran & Hadith</div>
-          <h2
-            style={{
-              fontSize: 36,
-              fontWeight: 700,
-              letterSpacing: "-0.025em",
-              color: "#f0eeff",
-              marginBottom: 20,
-              lineHeight: 1.2,
-            }}
-          >
-            The sacred texts, the way they were meant to be experienced
-          </h2>
-          <p
-            style={{
-              fontSize: 15,
-              lineHeight: 1.75,
-              color: "#7a7894",
-              marginBottom: 28,
-            }}
-          >
-            Every ayah comes with its transliteration, multiple translations,
-            and contextual tafsir from classical scholars. Every hadith carries
-            its full chain, grading, and a plain-language explanation of what it
-            means for your life today.
-          </p>
+  const navigate = useNavigate();
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+  return (
+    <section id="quran" className="py-20 px-6 relative">
+      <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        {/* Left: copy */}
+        <div className="space-y-6">
+          <div className="space-y-3">
+            <span className="label-badge">Sacred Texts</span>
+            <h2 className="section-title">
+              The Noble Quran & Hadith,
+              <br />
+              <span className="text-[var(--accent)]">structured for understanding</span>
+            </h2>
+            <p className="text-sm sm:text-base text-[var(--text-secondary)] leading-relaxed font-normal">
+              Every ayah is accompanied with clear English translations, world-class reciters, and contextual tafsir commentary. Explore Sahih Bukhari, Muslim, and core Sunnah collections with authenticated chains.
+            </p>
+          </div>
+
+          <div className="space-y-3 pt-2">
             {QURAN_FEATURES.map((feature) => (
               <div
                 key={feature}
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 10,
-                  fontSize: 14,
-                  color: "#9896b0",
-                }}
+                className="flex items-start gap-3 text-sm text-[var(--text-secondary)] group"
               >
-                <span style={{ color: "#22d3a5", marginTop: 2, flexShrink: 0 }}>
-                  <EmojiImage src={EMOJI_ASSET_URLS.check} alt="" size={14} />
-                </span>
-                {feature}
+                <div className="w-5 h-5 rounded-full bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0 mt-0.5 group-hover:border-teal-500/50 transition-colors">
+                  <CheckCircle2
+                    size={13}
+                    className="text-[var(--accent)]"
+                  />
+                </div>
+                <span className="group-hover:text-[var(--text-primary)] transition-colors">{feature}</span>
               </div>
             ))}
+          </div>
+
+          <div className="pt-2">
+            <button
+              onClick={() => navigate("/quran")}
+              className="btn btn-primary text-xs py-2.5 px-5"
+            >
+              <BookOpen size={14} />
+              Read & Listen to Quran
+            </button>
           </div>
         </div>
 

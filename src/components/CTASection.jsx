@@ -1,148 +1,77 @@
-import { Link } from "react-router-dom";
-import { EmojiImage, GeometricPattern } from "./ui/Primitives";
-import Register from "../pages/Register";
-import { EMOJI_ASSET_URLS } from "../data/constants";
+import { ArrowRight, Sparkles, BookOpen, ShieldCheck, Heart } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export default function CTASection({ scrollTo }) {
+  const navigate = useNavigate();
+
   return (
     <section
       id="join"
-      style={{
-        padding: "112px 24px",
-        position: "relative",
-        zIndex: 1,
-        textAlign: "center",
-        overflow: "hidden",
-      }}
+      className="relative py-28 px-6 text-center overflow-hidden"
     >
-      {/* Background pattern */}
-      <GeometricPattern
-        style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          opacity: 0.6,
-        }}
-        color="#22d3a5"
-      />
-
-      {/* Radial glow */}
+      {/* Dynamic Ambient Luxury Glow */}
       <div
         aria-hidden="true"
-        style={{
-          position: "absolute",
-          inset: 0,
-          background:
-            "radial-gradient(ellipse 60% 70% at 50% 50%, rgba(34,211,165,0.07) 0%, transparent 70%)",
-        }}
-      />
-
-      <div
-        style={{
-          position: "relative",
-          zIndex: 1,
-          maxWidth: 640,
-          margin: "0 auto",
-        }}
+        className="pointer-events-none absolute inset-0 flex items-center justify-center"
       >
-        {/* Arabic heading */}
-        <div
-          style={{
-            fontFamily: "'Amiri', serif",
-            fontSize: 22,
-            color: "#22d3a5",
-            marginBottom: 16,
-            letterSpacing: "0.04em",
-          }}
-        >
-          اقْرَأْ بِاسْمِ رَبِّكَ
+        <div className="w-[600px] h-[350px] bg-[radial-gradient(ellipse_at_center,rgba(20,184,166,0.15)_0%,rgba(234,179,8,0.05)_40%,transparent_70%)] blur-3xl opacity-80 animate-pulseGlow" />
+      </div>
+
+      <div className="relative z-10 max-w-2xl mx-auto space-y-7 glass-panel p-8 sm:p-12 rounded-3xl border border-teal-500/20 shadow-2xl">
+        <div className="inline-block px-4 py-1 rounded-full bg-teal-500/10 border border-teal-500/20">
+          <p className="arabic text-xl sm:text-2xl text-[var(--accent)] font-medium" lang="ar">
+            اقْرَأْ بِاسْمِ رَبِّكَ الَّذِي خَلَقَ
+          </p>
         </div>
 
-        <h2
-          style={{
-            fontSize: 46,
-            fontWeight: 700,
-            letterSpacing: "-0.03em",
-            color: "#f0eeff",
-            marginBottom: 16,
-            lineHeight: 1.1,
-          }}
-        >
-          Start learning before
+        <h2 className="section-title text-3xl sm:text-4xl">
+          Begin your journey in
           <br />
-          <span className="glow-text">Maghrib tonight.</span>
+          <span className="bg-gradient-to-r from-teal-400 to-emerald-300 bg-clip-text text-transparent">
+            sacred Islamic knowledge.
+          </span>
         </h2>
 
-        <p
-          style={{
-            fontSize: 17,
-            color: "#7a7894",
-            lineHeight: 1.65,
-            marginBottom: 40,
-          }}
-        >
-          Free to start. No credit card. No barriers between you and your Deen.
-          Join over 12,000 Muslims who chose to take their knowledge seriously.
+        <p className="section-sub text-sm sm:text-base font-normal">
+          100% free and open to everyone. No paywalls, no distracting ads. Access structured courses, live halaqat, and comprehensive Tafsir whenever you are ready.
         </p>
 
-        {/* CTAs */}
-        <div
-          style={{
-            display: "flex",
-            gap: 12,
-            justifyContent: "center",
-            flexWrap: "wrap",
-            marginBottom: 24,
-          }}
-        >
-          <Link
-            to={Register}
-            className="btn-primary"
-            style={{ fontSize: 16, padding: "16px 40px" }}
-            onClick={() => typeof scrollTo === "function" && scrollTo("join")}
-          >
-            Create Free Account →
-          </Link>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-2">
           <button
-            className="btn-secondary"
-            style={{ fontSize: 16, padding: "16px 32px" }}
+            onClick={() => {
+              if (typeof scrollTo === "function") scrollTo("join");
+              navigate("/register");
+            }}
+            className="btn btn-primary w-full sm:w-auto px-8 py-3.5 text-sm font-semibold group shadow-[0_4px_20px_rgba(20,184,166,0.4)]"
           >
-            Watch Demo
+            <span>Create Free Account</span>
+            <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform" />
+          </button>
+          
+          <button
+            onClick={() => navigate("/learn")}
+            className="btn btn-secondary w-full sm:w-auto px-7 py-3.5 text-sm font-semibold"
+          >
+            <BookOpen size={15} className="text-[var(--accent)]" />
+            <span>Browse Academy</span>
           </button>
         </div>
 
-        {/* Trust badges */}
-        <p
-          style={{
-            fontSize: 13,
-            color: "#44425a",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            flexWrap: "wrap",
-          }}
-        >
-          <span
-            style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
-          >
-            <EmojiImage src={EMOJI_ASSET_URLS.sparkle} alt="" size={12} />
-            Free forever for core features
+        {/* Feature badges */}
+        <div className="flex flex-wrap items-center justify-center gap-5 pt-4 text-xs font-mono text-[var(--text-muted)] border-t border-[var(--border)]">
+          <span className="inline-flex items-center gap-1.5">
+            <Sparkles size={12} className="text-[var(--accent)]" />
+            Free Core Access
           </span>
-          <span
-            style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
-          >
-            <EmojiImage src={EMOJI_ASSET_URLS.sparkle} alt="" size={12} />
-            No ads, ever
+          <span className="inline-flex items-center gap-1.5">
+            <ShieldCheck size={12} className="text-[var(--accent)]" />
+            Authentic Scholarly Sources
           </span>
-          <span
-            style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
-          >
-            <EmojiImage src={EMOJI_ASSET_URLS.sparkle} alt="" size={12} />
-            Built by Muslims, for Muslims
+          <span className="inline-flex items-center gap-1.5">
+            <Heart size={12} className="text-amber-400" />
+            Ad-Free Experience
           </span>
-        </p>
+        </div>
       </div>
     </section>
   );

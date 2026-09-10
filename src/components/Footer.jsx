@@ -1,58 +1,59 @@
+import { useNavigate } from "react-router-dom";
 import { LogoMark } from "./ui/Primitives";
 
-const FOOTER_LINKS = ["Privacy", "Terms", "Contact", "Quran", "Hadith"];
+const FOOTER_LINKS = [
+  { label: "Privacy", href: "#" },
+  { label: "Terms", href: "#" },
+  { label: "Contact", href: "#" },
+  { label: "Quran", to: "/quran" },
+  { label: "Hadith", to: "/hadith" },
+];
 
 export default function Footer() {
+  const navigate = useNavigate();
+
   return (
-    <footer
-      style={{
-        borderTop: "1px solid rgba(255,255,255,0.06)",
-        padding: "40px 24px",
-        position: "relative",
-        zIndex: 1,
-      }}
-    >
-      <div
-        style={{
-          maxWidth: 1060,
-          margin: "0 auto",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: 16,
-        }}
-      >
+    <footer className="border-t border-[var(--border)] py-10 px-6">
+      <div className="max-w-5xl mx-auto flex flex-wrap items-center justify-between gap-6">
         {/* Brand */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <LogoMark size={24} />
-          <span
-            style={{
-              fontFamily: "'Amiri', serif",
-              fontSize: 18,
-              color: "#e8e6f0",
-            }}
-          >
+        <button
+          onClick={() => navigate("/")}
+          className="flex items-center gap-2 group focus:outline-none"
+          aria-label="NoorHub home"
+        >
+          <LogoMark size={22} />
+          <span className="font-semibold text-sm text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
             NoorHub
           </span>
-        </div>
+        </button>
 
         {/* Links */}
-        <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-          {FOOTER_LINKS.map((link) => (
-            <span
-              key={link}
-              style={{ fontSize: 13, color: "#44425a", cursor: "pointer" }}
-            >
-              {link}
-            </span>
-          ))}
-        </div>
+        <nav className="flex flex-wrap gap-5" aria-label="Footer navigation">
+          {FOOTER_LINKS.map((link) =>
+            link.to ? (
+              <button
+                key={link.label}
+                onClick={() => navigate(link.to)}
+                className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
+              >
+                {link.label}
+              </button>
+            ) : (
+              <a
+                key={link.label}
+                href={link.href}
+                className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
+              >
+                {link.label}
+              </a>
+            ),
+          )}
+        </nav>
 
         {/* Copyright */}
-        <div style={{ fontSize: 12, color: "#44425a" }}>
+        <p className="text-xs text-[var(--text-muted)]">
           © 2026 NoorHub. Built with love for the Ummah.
-        </div>
+        </p>
       </div>
     </footer>
   );

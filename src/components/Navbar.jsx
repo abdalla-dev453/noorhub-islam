@@ -1,16 +1,9 @@
-import { useState, useEffect } from "react";
+import { BookOpen, LogIn, LogOut, Moon, Sun, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { LogoMark } from "./ui/Primitives";
+import { useAuth } from "../context/AuthContext";
 import { NAV_LINKS } from "../data/constants";
-
-const preloadRoute = (path) => {
-  if (typeof window === "undefined") return;
-
-  const link = document.createElement("link");
-  link.rel = "prefetch";
-  link.href = path;
-  document.head.appendChild(link);
-};
+import { LogoMark } from "./ui/Primitives";
 
 const ROUTE_MAP = {
   Home: "/",
@@ -18,21 +11,19 @@ const ROUTE_MAP = {
   Hadith: "/hadith",
   Learn: "/learn",
   About: "/about",
-  Login: "/login",
-  Register: "/register",
 };
 
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, isAuthenticated, logout } = useAuth();
+
   const [scrolled, setScrolled] = useState(false);
-  const [, setMobileMenuOpen] = useState(false);
+  const [theme, setTheme] = useState(
+    () => localStorage.getItem("noorhub_theme") ?? "dark",
+  );
 
-  // ⚡ Theme Persistent Engine State Setup
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem("noorhub_theme") || "dark";
-  });
-
+  // Apply theme class
   useEffect(() => {
     const root = window.document.documentElement;
     if (theme === "light") {
@@ -43,86 +34,109 @@ export default function Navbar() {
     localStorage.setItem("noorhub_theme", theme);
   }, [theme]);
 
+  // Scroll detection
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 40);
-    window.addEventListener("scroll", onScroll);
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
-  };
+  const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
 
-  const handleNavHover = (path) => {
-    preloadRoute(path);
-  };
-
-  const extendedNavLinks = [...NAV_LINKS, "Login", "Register"];
-  const activeNav =
-    Object.entries(ROUTE_MAP).find(([, r]) => r === location.pathname)?.[0] ||
+  const activeRoute =
+    Object.entries(ROUTE_MAP).find(([, r]) => r === location.pathname)?.[0] ??
     "Home";
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/");
+  };
 
   return (
     <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 px-6 ${
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 px-4 sm:px-8 ${
         scrolled
-          ? "bg-slate-100/90 dark:bg-[#060810]/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800/80 shadow-md"
+          ? "bg-[var(--bg)]/85 backdrop-blur-xl border-b border-[var(--border)] shadow-[0_4px_24px_rgba(0,0,0,0.4)]"
           : "bg-transparent border-b border-transparent"
       }`}
     >
-      <div className="max-w-7xl mx-auto flex items-center justify-between h-20 relative z-10">
-        {/* Brand Logo */}
-        <div
-          className="flex items-center gap-3 cursor-pointer group"
+      <div className="max-w-7xl mx-auto flex items-center justify-between h-16">
+        {/* Brand */}
+        <button
           onClick={() => navigate("/")}
+          className="flex items-center gap-2.5 group focus:outline-none"
+          aria-label="NoorHub home"
         >
-          <LogoMark size={34} />
-          <span className="font-serif text-2xl font-bold tracking-wide text-slate-800 dark:text-slate-100 group-hover:text-teal-500 transition-colors">
+          <div className="relative group-hover:scale-105 transition-transform">
+            <LogoMark size={30} />
+            <div className="pointer-events-none absolute inset-0 rounded-full bg-teal-500/20 blur-sm opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
+          <span className="font-extrabold text-xl tracking-tight text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
             NoorHub
           </span>
-        </div>
+        </button>
 
-        {/* Center Links */}
-        <div className="hidden md:flex items-center gap-8">
-          {extendedNavLinks.map((link) => (
+        {/* Desktop nav */}
+        <div className="hidden md:flex items-center gap-1 bg-[var(--surface-glass)] px-3 py-1.5 rounded-full border border-[var(--border)] backdrop-blur-md">
+          {NAV_LINKS.map((link) => (
             <button
               key={link}
-              onMouseEnter={() => handleNavHover(ROUTE_MAP[link])}
-              onClick={() => {
-                navigate(ROUTE_MAP[link]);
-                setMobileMenuOpen(false);
-              }}
-              className={`relative px-1 py-2 text-xs font-semibold tracking-wide uppercase transition-all duration-300 ${
-                activeNav === link
-                  ? "text-teal-600 dark:text-teal-400 font-bold"
-                  : "text-slate-500 dark:text-slate-400 hover:text-teal-500"
-              }`}
+              onClick={() => navigate(ROUTE_MAP[link])}
+              className={`nav-link px-3 py-1 text-xs font-semibold ${activeRoute === link ? "active text-[var(--accent)]" : ""}`}
             >
               {link}
-              <span
-                className={`absolute bottom-0 left-0 right-0 h-0.5 bg-teal-500 rounded-full transition-all duration-300 ${activeNav === link ? "scale-x-100" : "scale-x-0"}`}
-              />
             </button>
           ))}
         </div>
 
-        {/* CTA and Dynamic Action Switch Row */}
-        <div className="flex items-center gap-4">
-          {/* ☀️/🌙 Micro Theme Switcher Component */}
+        {/* Right actions */}
+        <div className="flex items-center gap-2.5">
+          {/* Theme toggle */}
           <button
             onClick={toggleTheme}
-            className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-center text-sm shadow-sm hover:border-teal-500/40 text-slate-700 dark:text-slate-300 transition-colors focus:outline-none"
-            aria-label="Toggle Interface Theme Color"
+            className="btn btn-ghost w-9 h-9 p-0 rounded-full border border-transparent hover:border-[var(--border)] transition-transform hover:rotate-12"
+            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
           >
-            {theme === "dark" ? "☀️" : "🌙"}
+            {theme === "dark" ? (
+              <Sun size={17} className="text-amber-400" strokeWidth={2} />
+            ) : (
+              <Moon size={17} className="text-teal-600" strokeWidth={2} />
+            )}
           </button>
 
-          <button
-            onClick={() => navigate("/learn")}
-            className="hidden sm:inline-block relative px-5 py-2.5 rounded-xl text-xs font-bold tracking-wider uppercase border border-teal-500/30 text-teal-600 dark:text-teal-400 bg-teal-500/5 hover:bg-teal-500 hover:text-slate-950 transition-all duration-300"
-          >
-            Start Free
-          </button>
+          {isAuthenticated ? (
+            <>
+              {/* User name pill */}
+              <span className="hidden sm:inline text-xs text-[var(--text-secondary)] font-mono font-medium px-2 py-1 rounded-full bg-[var(--surface)] border border-[var(--border)]">
+                {user?.name}
+              </span>
+              <button
+                onClick={handleLogout}
+                className="btn btn-secondary text-xs py-1.5 px-3.5"
+                title="Sign out"
+              >
+                <LogOut size={13} />
+                <span className="hidden sm:inline">Sign Out</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => navigate("/login")}
+                className="btn btn-ghost text-xs"
+              >
+                <LogIn size={14} />
+                Sign In
+              </button>
+              <button
+                onClick={() => navigate("/learn")}
+                className="hidden sm:flex btn btn-primary text-xs py-2 px-4 shadow-[0_0_15px_rgba(20,184,166,0.3)]"
+              >
+                <BookOpen size={13} />
+                Start Learning
+              </button>
+            </>
+          )}
         </div>
       </div>
     </nav>

@@ -1,6 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { EmojiImage } from "../components/ui/Primitives";
-import { EMOJI_ASSET_URLS } from "../data/constants";
+import { Pause, Play, Search, Volume2, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../utils/api";
 
 const RECITERS = [
@@ -22,8 +21,8 @@ export default function Quran() {
   const [modalLoading, setModalLoading] = useState(false);
 
   const [selectedReciter, setSelectedReciter] = useState("ar.alafasy");
-  const [playingAyahIndex, setPlayingAyahIndex] = useState(null); // Tracks array indices (0, 1, 2...)
-  const [isContinuous, setIsContinuous] = useState(true); // Toggle autoplay workflow
+  const [playingAyahIndex, setPlayingAyahIndex] = useState(null);
+  const [isContinuous, setIsContinuous] = useState(true);
 
   const audioRef = useRef(null);
 
@@ -56,7 +55,7 @@ export default function Quran() {
 
     audioRef.current
       .play()
-      .catch((e) => console.error("Playback interrupted", e));
+      .catch((e) => console.error("Audio playback interrupted:", e));
 
     audioRef.current.onended = () => {
       const nextIndex = index + 1;
@@ -90,7 +89,7 @@ export default function Quran() {
         playAudioStream(integratedVerses, resumeIndex);
       }
     } catch (err) {
-      console.error(err);
+      console.error("Failed to load surah details:", err);
     } finally {
       setModalLoading(false);
     }
@@ -156,57 +155,58 @@ export default function Quran() {
   );
 
   return (
-    <div className="space-y-12 relative">
-      {/* Header section */}
-      <div className="text-center space-y-4">
-        <span className="glow-badge">Holy Text</span>
-        <h1 className="text-4xl md:text-5xl gradient-heading">
-          The Noble Quran
-        </h1>
-        <p className="sub-heading">
-          Select a chapter to read verses and stream adaptive continuous play
-          audio recitations.
+    <div className="space-y-10">
+      {/* Header */}
+      <div className="text-center space-y-3">
+        <span className="label-badge">Holy Text</span>
+        <h1 className="section-title">The Noble Quran</h1>
+        <p className="section-sub">
+          Read verses in clear Arabic script with English translation and listen
+          to high quality audio recitations.
         </p>
       </div>
 
-      <div className="max-w-md mx-auto">
+      {/* Search */}
+      <div className="max-w-md mx-auto relative">
+        <Search
+          size={16}
+          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none"
+        />
         <input
           type="text"
-          placeholder="Search by index, name, or meaning..."
-          className="noor-input"
+          placeholder="Search by chapter number, name, or meaning..."
+          className="noor-input pl-10"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
       {loading ? (
-        <div className="text-center text-teal-400 font-mono animate-pulse">
-          Syncing surah indexes...
+        <div className="text-center text-sm font-mono text-[var(--accent)] animate-pulse py-12">
+          Loading Surah index...
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-6xl mx-auto">
           {filteredSurahs.map((surah) => (
             <div
               key={surah.id}
               onClick={() => openSurahReader(surah)}
-              className="noor-card group cursor-pointer flex justify-between items-center relative overflow-hidden"
+              className="noor-card group cursor-pointer flex justify-between items-center p-4 hover:border-[var(--accent)]"
             >
-              <div className="absolute top-0 right-0 w-24 h-24 bg-teal-500/5 rounded-full blur-2xl group-hover:bg-teal-500/10 transition-colors" />
-              <div className="flex items-center gap-4 relative z-10">
-                <div className="relative w-10 h-10 flex items-center justify-center shrink-0">
-                  <div className="absolute inset-0 bg-teal-500/10 border border-teal-400/20 rotate-45 rounded-sm" />
-                  <span className="relative text-xs font-mono font-bold text-teal-400">
-                    {surah.id}
-                  </span>
+              <div className="flex items-center gap-3.5">
+                <div className="w-9 h-9 rounded-lg bg-[var(--surface-hover)] border border-[var(--border)] flex items-center justify-center text-xs font-mono font-bold text-[var(--accent)] shrink-0">
+                  {surah.id}
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-100 group-hover:text-teal-400 transition-colors">
+                  <h3 className="font-semibold text-sm text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
                     {surah.name}
                   </h3>
-                  <p className="text-xs text-slate-400">{surah.meaning}</p>
+                  <p className="text-xs text-[var(--text-secondary)]">
+                    {surah.meaning} • {surah.verses} verses
+                  </p>
                 </div>
               </div>
-              <p className="text-xl font-serif text-teal-400 relative z-10">
+              <p className="arabic text-lg text-[var(--accent)]" lang="ar">
                 {surah.arabic}
               </p>
             </div>
@@ -214,16 +214,16 @@ export default function Quran() {
         </div>
       )}
 
-      {/*  Advanced Audio Enabled Modal Viewer */}
+      {/* Surah Reader Modal */}
       {activeSurah && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md transition-opacity">
-          <div className="bg-[#0b0f19] border border-slate-800 w-full max-w-4xl h-[85vh] rounded-3xl flex flex-col shadow-2xl overflow-hidden">
-            {/* Modal Control Dashboard Header Area */}
-            <div className="p-6 border-b border-slate-900 bg-slate-900/40 flex flex-col md:flex-row gap-4 justify-between md:items-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-[var(--surface)] border border-[var(--border)] w-full max-w-4xl h-[85vh] rounded-2xl flex flex-col shadow-xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-[var(--border)] flex flex-col sm:flex-row gap-4 justify-between sm:items-center bg-[var(--surface)]">
               <div>
-                <h2 className="text-xl font-bold text-teal-400 font-serif flex items-center gap-3">
+                <h2 className="text-lg sm:text-xl font-bold text-[var(--text-primary)] flex items-center gap-2">
                   <span>{activeSurah.name}</span>
-                  <span className="text-sm font-sans font-normal text-slate-500">
+                  <span className="text-xs font-normal text-[var(--text-secondary)]">
                     ({activeSurah.meaning})
                   </span>
                 </h2>
@@ -231,57 +231,51 @@ export default function Quran() {
                   <button
                     onClick={playFullSurah}
                     disabled={modalLoading}
-                    className="text-[10px] font-sans font-bold bg-teal-500 hover:bg-teal-400 disabled:opacity-40 text-slate-950 px-2.5 py-1 rounded shadow-md tracking-wider uppercase transition-colors"
+                    className="btn btn-primary text-xs py-1 px-3"
                   >
-                    ^ Play Full Surah
+                    <Volume2 size={13} />
+                    Play Surah
                   </button>
-                  <label className="flex items-center gap-1.5 cursor-pointer text-xs font-mono text-slate-400 select-none">
+                  <label className="flex items-center gap-1.5 cursor-pointer text-xs text-[var(--text-secondary)] select-none">
                     <input
                       type="checkbox"
                       checked={isContinuous}
                       onChange={(e) => setIsContinuous(e.target.checked)}
-                      className="accent-teal-500 cursor-pointer w-3.5 h-3.5"
+                      className="accent-[var(--accent)] cursor-pointer w-3.5 h-3.5"
                     />
-                    Continuous Autoplay
+                    Autoplay Next
                   </label>
                 </div>
               </div>
 
-              {/*  Reciter Picker Component */}
-              <div className="flex items-center gap-3 self-end md:self-auto">
+              {/* Reciter selector & Close */}
+              <div className="flex items-center gap-2">
                 <select
                   value={selectedReciter}
                   onChange={handleReciterChange}
-                  className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-medium text-slate-200 focus:outline-none focus:border-teal-500/60 cursor-pointer"
+                  className="bg-[var(--bg)] border border-[var(--border)] rounded-md px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] cursor-pointer"
                 >
                   {RECITERS.map((qari) => (
-                    <option
-                      key={qari.id}
-                      value={qari.id}
-                      className="bg-slate-950 text-slate-300"
-                    >
+                    <option key={qari.id} value={qari.id}>
                       {qari.name}
                     </option>
                   ))}
                 </select>
                 <button
                   onClick={handleCloseModal}
-                  className="w-8 h-8 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center font-mono text-xs transition-colors"
+                  className="btn btn-ghost w-8 h-8 p-0 rounded-md"
+                  aria-label="Close reader"
                 >
-                  <EmojiImage
-                    src={EMOJI_ASSET_URLS.close}
-                    alt="Close"
-                    size={16}
-                  />
+                  <X size={16} />
                 </button>
               </div>
             </div>
 
-            {/* Scrollable Text Window Frame */}
-            <div className="grow p-6 md:p-8 overflow-y-auto space-y-8 custom-scrollbar">
+            {/* Verses Scroll Area */}
+            <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-6">
               {modalLoading ? (
-                <div className="h-full flex items-center justify-center text-sm font-mono text-slate-500 animate-pulse">
-                  Streaming target reciter digital assets...
+                <div className="h-full flex items-center justify-center text-sm font-mono text-[var(--text-secondary)] animate-pulse">
+                  Loading verses and audio...
                 </div>
               ) : (
                 verses.map((ayah) => {
@@ -289,27 +283,41 @@ export default function Quran() {
                   return (
                     <div
                       key={ayah.index}
-                      className={`flex gap-4 items-center ${isCurrentPlaying ? "text-teal-400" : ""}`}
                       id={`ayah-${ayah.number}`}
+                      className={`p-4 rounded-xl border transition-colors flex gap-4 items-start ${
+                        isCurrentPlaying
+                          ? "border-[var(--accent)] bg-[var(--accent)]/5"
+                          : "border-[var(--border)] bg-[var(--bg)]/50"
+                      }`}
                     >
-                      <div className="shrink-0">
-                        <span className="text-xs font-mono px-2 py-0.5 bg-slate-950/60 border border-slate-900 text-teal-400 font-bold rounded">
-                          {ayah.number}
-                        </span>
-                      </div>
-                      <div className="grow space-y-1">
-                        <p className="text-sm md:text-base text-slate-300 leading-relaxed font-sans selection:bg-teal-500 selection:text-slate-950">
+                      <span className="text-xs font-mono px-2 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)] text-[var(--accent)] font-bold shrink-0 mt-1">
+                        {ayah.number}
+                      </span>
+
+                      <div className="flex-1 space-y-2">
+                        <p
+                          className="arabic text-xl sm:text-2xl text-[var(--text-primary)] text-right leading-loose"
+                          lang="ar"
+                        >
                           {ayah.text}
                         </p>
-                        <p className="text-xs md:text-sm text-slate-400 leading-snug font-sans italic selection:bg-teal-500/30 selection:text-slate-950">
+                        <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
                           {ayah.translation}
                         </p>
                       </div>
+
                       <button
                         onClick={() => togglePlayPause(ayah.index)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold tracking-wider uppercase border border-slate-800 text-slate-300 bg-slate-900/20 hover:bg-slate-900 hover:text-teal-400 hover:border-teal-500/30 transition-all duration-200 shadow-md ${isCurrentPlaying ? "bg-teal-500/20 text-teal-400 border-teal-400" : ""}`}
+                        className={`btn text-xs py-1.5 px-2.5 shrink-0 ${
+                          isCurrentPlaying ? "btn-primary" : "btn-secondary"
+                        }`}
+                        title={isCurrentPlaying ? "Pause Ayah" : "Play Ayah"}
                       >
-                        {isCurrentPlaying ? "Pause" : "Play"}
+                        {isCurrentPlaying ? (
+                          <Pause size={13} />
+                        ) : (
+                          <Play size={13} />
+                        )}
                       </button>
                     </div>
                   );
