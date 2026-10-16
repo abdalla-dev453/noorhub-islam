@@ -32,6 +32,12 @@ def create_app():
     migrate.init_app(app, db)
     jwt.init_app(app)
 
+    @jwt.token_in_blocklist_loader
+    def token_is_revoked(_jwt_header, jwt_payload):
+        from models import RevokedToken
+
+        return db.session.get(RevokedToken, jwt_payload.get("jti")) is not None
+
     # ── CORS: restrict to configured frontend origin ───────────────────────────
     CORS(
         app,
@@ -51,7 +57,7 @@ def create_app():
             "style-src 'self' 'unsafe-inline'; "
             "img-src 'self' data:; "
             "font-src 'self' https://fonts.gstatic.com; "
-            "connect-src 'self' http://localhost:5000 http://localhost:5173"
+            f"connect-src 'self' {app.config['API_ORIGIN']}"
         )
         return response
 
@@ -67,7 +73,7 @@ def create_app():
     # ── Create tables on startup ──────────────────────────────────────────────
     with app.app_context():
         try:
-            from models import User, UserProgress  # noqa: F401
+            from models import RevokedToken, User, UserProgress  # noqa: F401
 
             db.create_all()
         except Exception as e:
@@ -111,4 +117,4 @@ def create_app():
 app = create_app()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")), debug=True)
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")), debug=app.config["DEBUG"])

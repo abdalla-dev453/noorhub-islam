@@ -1,7 +1,13 @@
-import { AlertCircle, LogIn } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { AlertCircle, LogIn } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+
+const POINTS = [
+  "Your reading position, bookmarks and notes stay on this device unless you export them.",
+  "Lesson progress can sync to your account so you can finish a course on another device.",
+  "No advertising, no public activity feed, and no tracking pixels.",
+];
 
 export default function Login() {
   const navigate = useNavigate();
@@ -11,17 +17,17 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState([]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setErrors([]);
     setLoading(true);
 
     try {
-      const res = await login(formData);
-      if (res.errors) {
-        setErrors(res.errors);
+      const result = await login(formData);
+      if (result.errors) {
+        setErrors(result.errors);
       } else {
-        navigate("/learn");
+        navigate("/");
       }
     } catch {
       setErrors(["An unexpected error occurred. Please try again."]);
@@ -31,93 +37,90 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-[70vh] flex items-center justify-center px-4 py-8">
-      <div className="noor-card w-full max-w-md space-y-6 p-6 sm:p-8">
-        <div className="text-center space-y-2">
-          <span className="label-badge">Account</span>
-          <h1 className="text-2xl sm:text-3xl font-bold text-[var(--text-primary)]">
-            Welcome Back
-          </h1>
-          <p className="text-sm text-[var(--text-secondary)]">
-            Sign in to sync your reading and learning progress across devices.
+    <div className="container">
+      <div className="auth">
+        <aside className="auth__aside">
+          <span className="page-head__eyebrow">Account</span>
+          <p className="auth__quote">
+            “And We have certainly made the Quran easy to remember.”
           </p>
-        </div>
+          <p className="auth__cite">Quran 54:17</p>
 
-        {errors.length > 0 && (
-          <div className="p-3.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-start gap-2">
-            <AlertCircle size={16} className="shrink-0 mt-0.5" />
-            <div className="space-y-0.5">
-              {errors.map((err, i) => (
-                <p key={i}>{err}</p>
-              ))}
+          <ul className="auth__points">
+            {POINTS.map((point) => (
+              <li key={point} className="auth__point">
+                <span className="auth__point-bullet" aria-hidden="true" />
+                {point}
+              </li>
+            ))}
+          </ul>
+        </aside>
+
+        <div className="auth__card">
+          <h1 className="auth__title">Sign in</h1>
+          <p className="auth__sub">
+            Sign in to sync your learning progress across devices. Reading
+            bookmarks, notes and practice logs stay in this browser.
+          </p>
+
+          {errors.length > 0 ? (
+            <div className="notice notice--danger auth__errors" role="alert">
+              <AlertCircle size={17} className="notice__icon" aria-hidden="true" />
+              <div>
+                {errors.map((error) => (
+                  <p key={error}>{error}</p>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          ) : null}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-xs font-mono font-semibold tracking-wider text-[var(--text-secondary)] uppercase">
-              Email Address
+          <form className="auth__form" onSubmit={handleSubmit}>
+            <label className="field">
+              <span className="field__label">Email address</span>
+              <input
+                type="email"
+                required
+                autoComplete="email"
+                placeholder="you@example.com"
+                className="input"
+                value={formData.email}
+                onChange={(event) =>
+                  setFormData({ ...formData, email: event.target.value })
+                }
+                disabled={loading}
+              />
             </label>
-            <input
-              type="email"
-              required
-              autoComplete="email"
-              placeholder="you@example.com"
-              className="noor-input"
-              value={formData.email}
-              onChange={(e) =>
-                setFormData({ ...formData, email: e.target.value })
-              }
+
+            <label className="field">
+              <span className="field__label">Password</span>
+              <input
+                type="password"
+                required
+                autoComplete="current-password"
+                placeholder="Your password"
+                className="input"
+                value={formData.password}
+                onChange={(event) =>
+                  setFormData({ ...formData, password: event.target.value })
+                }
+                disabled={loading}
+              />
+            </label>
+
+            <button
+              type="submit"
+              className="btn btn--primary btn--lg btn--block"
               disabled={loading}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <div className="flex justify-between items-center">
-              <label className="text-xs font-mono font-semibold tracking-wider text-[var(--text-secondary)] uppercase">
-                Password
-              </label>
-            </div>
-            <input
-              type="password"
-              required
-              autoComplete="current-password"
-              placeholder="••••••••"
-              className="noor-input"
-              value={formData.password}
-              onChange={(e) =>
-                setFormData({ ...formData, password: e.target.value })
-              }
-              disabled={loading}
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full btn btn-primary py-3 text-sm font-bold tracking-wider uppercase mt-2"
-          >
-            {loading ? (
-              "Signing In..."
-            ) : (
-              <>
-                <LogIn size={15} />
-                Sign In
-              </>
-            )}
-          </button>
-        </form>
-
-        <div className="text-center pt-2">
-          <p className="text-xs text-[var(--text-secondary)]">
-            Don&apos;t have an account?{" "}
-            <Link
-              to="/register"
-              className="text-[var(--accent)] hover:underline font-semibold"
             >
-              Create Account
-            </Link>
+              <LogIn size={16} aria-hidden="true" />
+              {loading ? "Signing in…" : "Sign in"}
+            </button>
+          </form>
+
+          <p className="auth__alt">
+            New to NoorHub? <Link to="/register">Create an account</Link>, or keep
+            reading as a guest — everything except progress sync works without an
+            account.
           </p>
         </div>
       </div>

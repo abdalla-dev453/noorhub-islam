@@ -1,104 +1,46 @@
 import {
   AlertCircle,
   ArrowLeft,
+  Bookmark,
+  BookmarkCheck,
   BookOpen,
   RefreshCw,
   Search,
+  Share2,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../utils/api";
+import { usePersistentState } from "../hooks/usePersistentState";
 import {
   filterNarrations,
   getNarrationMatchCount,
 } from "../utils/hadithFilters";
+import ProgressBar from "../components/ui/ProgressBar";
+import Notice from "../components/ui/Notice";
+import EmptyState from "../components/ui/EmptyState";
+import { SkeletonList } from "../components/ui/Skeleton";
+import IconButton from "../components/ui/IconButton";
 
 const REPOS = [
-  {
-    slug: "eng-bukhari",
-    title: "Sahih al-Bukhari",
-    key: "bukhari",
-    total: 7563,
-  },
-  { slug: "eng-muslim", title: "Sahih Muslim", key: "muslim", total: 7563 },
-  { slug: "eng-abudawud", title: "Sunan Abi Dawud", key: "dawud", total: 5274 },
+  { slug: "eng-bukhari", title: "Sahih al-Bukhari", key: "bukhari" },
+  { slug: "eng-muslim", title: "Sahih Muslim", key: "muslim" },
+  { slug: "eng-abudawud", title: "Sunan Abi Dawud", key: "dawud" },
 ];
 
 const BATCH_SIZE = 20;
-
-const HIGHLIGHT_PATTERNS = [
-  {
-    regex: /\b(Allah|God|The Lord|Almighty)\b/gi,
-    className: "text-[var(--accent)] font-semibold",
-  },
-  {
-    regex:
-      /\b(Prophet|Messenger|Muhammad|Prophet Muhammad|Jesus|Moses|Abraham|Ibrahim|Isa|Musa|Adam)\b/gi,
-    className: "text-emerald-400 font-semibold",
-  },
-  {
-    regex: /\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b/g,
-    className: "text-sky-400 font-semibold",
-  },
-  { regex: /\(([^)]+)\)/g, className: "text-amber-300 font-medium" },
-];
-
-function renderHighlightedText(text) {
-  if (!text) return null;
-
-  const parts = [];
-  let remaining = text;
-
-  while (remaining) {
-    let nextMatch = null;
-    for (const pattern of HIGHLIGHT_PATTERNS) {
-      const match = remaining.match(pattern.regex);
-      if (match) {
-        const index = remaining.search(pattern.regex);
-        if (nextMatch === null || index < nextMatch.index) {
-          nextMatch = { match: match[0], index, pattern };
-        }
-      }
-    }
-
-    if (!nextMatch) {
-      parts.push(<span key={parts.length}>{remaining}</span>);
-      break;
-    }
-
-    const before = remaining.slice(0, nextMatch.index);
-    const matched = nextMatch.match;
-    const after = remaining.slice(nextMatch.index + matched.length);
-
-    if (before) {
-      parts.push(<span key={`${parts.length}-text`}>{before}</span>);
-    }
-
-    parts.push(
-      <span
-        key={`${parts.length}-highlight`}
-        className={nextMatch.pattern.className}
-      >
-        {matched}
-      </span>,
-    );
-
-    remaining = after;
-  }
-
-  return <>{parts}</>;
-}
+const SAVED_KEY = "noorhub_hadith_saved";
 
 export default function Hadith() {
   const [activeBook, setActiveBook] = useState(null);
   const [allNarrations, setAllNarrations] = useState([]);
   const [visibleCount, setVisibleCount] = useState(BATCH_SIZE);
-
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  const [saved, setSaved] = usePersistentState(SAVED_KEY, []);
+  const [copiedId, setCopiedId] = useState(null);
 
   const abortControllerRef = useRef(null);
-
   const normalizedSearch = useMemo(() => search.trim().toLowerCase(), [search]);
 
   const filteredNarrations = useMemo(() => {
@@ -146,161 +88,257 @@ export default function Hadith() {
   }, []);
 
   const loadMore = useCallback(() => {
-    setVisibleCount((prev) => prev + BATCH_SIZE);
+    setVisibleCount((previous) => previous + BATCH_SIZE);
   }, []);
 
-  useEffect(() => {
-    return () => {
+  useEffect(
+    () => () => {
       abortControllerRef.current?.abort();
-    };
-  }, []);
+    },
+    [],
+  );
+
+  const isSaved = (book, id) => saved.some((item) => item.book === book && item.id === id);
+
+  const toggleSaved = (narration, book) => {
+    setSaved((previous) => {
+      const exists = previous.some(
+        (item) => item.book === book.slug && item.id === narration.id,
+      );
+      if (exists) {
+        return previous.filter(
+          (item) => !(item.book === book.slug && item.id === narration.id),
+        );
+      }
+      return [
+        ...previous,
+        {
+          book: book.slug,
+          bookTitle: book.title,
+          id: narration.id,
+          text: narration.text,
+          savedAt: new Date().toISOString(),
+        },
+      ].slice(-200);
+    });
+  };
+
+  const share = async (narration, book) => {
+    const label = `${book.title} · narration ${narration.id}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: label, text: narration.text });
+      } else {
+        await navigator.clipboard.writeText(narration.text);
+        setCopiedId(narration.id);
+        window.setTimeout(() => setCopiedId(null), 2400);
+      }
+    } catch {
+      /* share dismissed */
+    }
+  };
 
   return (
-    <div className="space-y-10">
-      {/* Header */}
-      <div className="text-center space-y-3">
-        <span className="label-badge">Prophetic Traditions</span>
-        <h1 className="section-title">Hadith Encyclopedia</h1>
-        <p className="section-sub">
-          Explore authentic narrations and teachings from the classical hadith
-          compilations.
-        </p>
-      </div>
-
-      {!activeBook ? (
-        /* Collection Selector */
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
-          {REPOS.map((book) => (
-            <div
-              key={book.slug}
-              onClick={() => selectBook(book)}
-              className="noor-card text-center group cursor-pointer space-y-4 py-8 hover:border-[var(--accent)]"
-            >
-              <div className="w-12 h-12 rounded-xl bg-[var(--surface-hover)] text-[var(--accent)] font-bold flex items-center justify-center mx-auto text-sm font-mono border border-[var(--border)] group-hover:bg-[var(--accent)] group-hover:text-slate-950 transition-colors">
-                <BookOpen size={20} />
-              </div>
-              <div className="space-y-1">
-                <h3 className="font-bold text-base text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
-                  {book.title}
-                </h3>
-                <p className="text-xs text-[var(--text-muted)] font-mono">
-                  {book.total.toLocaleString()} Narrations
-                </p>
-              </div>
-              <span className="text-xs font-semibold text-[var(--accent)] block pt-1">
-                Browse Collection →
-              </span>
-            </div>
-          ))}
-        </div>
-      ) : (
-        /* Active Collection */
-        <div className="space-y-6 max-w-4xl mx-auto">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[var(--border)]">
-            <button
-              onClick={handleBack}
-              className="inline-flex items-center gap-1.5 text-xs font-mono font-semibold tracking-wider text-[var(--accent)] hover:underline"
-            >
-              <ArrowLeft size={14} />
-              Back to Collections
-            </button>
-            <h2 className="text-xl font-bold text-[var(--text-primary)]">
-              {activeBook.title}
-            </h2>
+    <div className="page">
+      <div className="container container--narrow">
+        <header className="page-head">
+          <span className="page-head__eyebrow">Library</span>
+          <h1 className="page-head__title">Hadith collections</h1>
+          <div className="page-head__meta">
+            <span>English narration text</span>
+            <span aria-hidden="true">·</span>
+            <span>Grading and narrator chains not yet included</span>
           </div>
+          <p className="page__lede">
+            Browse three collections narration by narration, or search inside one.
+            Every entry names its source, and anything you save stays on this
+            device.
+          </p>
+        </header>
 
-          {/* Search bar */}
-          {!loading && !error && (
-            <div className="relative">
-              <Search
-                size={16}
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none"
-              />
-              <input
-                type="text"
-                placeholder={`Search inside ${activeBook.title}...`}
-                className="noor-input pl-10 pr-24"
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setVisibleCount(BATCH_SIZE);
-                }}
-              />
-              {search && (
-                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] bg-[var(--surface)] border border-[var(--border)] text-[var(--text-muted)] px-2 py-0.5 rounded font-mono">
-                  {activeFilteredTotal} matches
-                </span>
-              )}
+        {!activeBook ? (
+          <section aria-labelledby="collections-heading">
+            <h2 className="sr-only" id="collections-heading">
+              Choose a collection
+            </h2>
+            <div className="collection-list">
+              {REPOS.map((book) => (
+                <button
+                  key={book.slug}
+                  type="button"
+                  className="card card--interactive collection-card"
+                  onClick={() => selectBook(book)}
+                >
+                  <span className="explore-row__icon">
+                    <BookOpen size={19} aria-hidden="true" />
+                  </span>
+                  <h3 className="card__title collection-card__title">{book.title}</h3>
+                  <p className="meta collection-card__meta">
+                    {saved.filter((item) => item.book === book.slug).length} saved
+                    from this collection
+                  </p>
+                  <p className="collection-card__desc">
+                    English text as published in the fawazahmed0 hadith-api
+                    edition. Open the collection to search and save narrations.
+                  </p>
+                  <span className="section-header__action">
+                    Browse collection
+                    <span aria-hidden="true">→</span>
+                  </span>
+                </button>
+              ))}
             </div>
-          )}
 
-          {loading && (
-            <div className="space-y-4 py-8" aria-live="polite">
-              <div className="noor-card space-y-3 animate-pulse">
-                <div className="h-4 w-24 rounded bg-[var(--surface-hover)]" />
-                <div className="h-4 w-full rounded bg-[var(--surface-hover)]" />
-                <div className="h-4 w-4/5 rounded bg-[var(--surface-hover)]" />
-              </div>
-              <div className="noor-card space-y-3 animate-pulse">
-                <div className="h-4 w-20 rounded bg-[var(--surface-hover)]" />
-                <div className="h-4 w-full rounded bg-[var(--surface-hover)]" />
-                <div className="h-4 w-3/4 rounded bg-[var(--surface-hover)]" />
-              </div>
-            </div>
-          )}
-
-          {error && (
-            <div className="noor-card border-red-500/20 text-center py-8 max-w-md mx-auto space-y-3">
-              <AlertCircle size={24} className="text-red-400 mx-auto" />
-              <p className="text-sm text-red-400">
-                Could not load hadith records. Please try again.
-              </p>
-              <button
-                onClick={() => selectBook(activeBook)}
-                className="btn btn-secondary text-xs py-1.5 px-4"
-              >
-                <RefreshCw size={13} />
-                Retry
+            {saved.length > 0 ? (
+              <section className="card hadith-saved" aria-labelledby="saved-heading">
+                <h2 className="card__title" id="saved-heading">
+                  Saved narrations
+                </h2>
+                <p className="meta">
+                  {saved.length} saved on this device. Saved text is stored
+                  locally, not synced.
+                </p>
+                <ul className="stack hadith-saved__list">
+                  {saved.map((item) => (
+                    <li key={`${item.book}-${item.id}`} className="hadith-saved__item">
+                      <p className="meta">
+                        {item.bookTitle} · narration {item.id}
+                      </p>
+                      <p className="hadith-saved__text">{item.text}</p>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+          </section>
+        ) : (
+          <section aria-labelledby="collection-heading">
+            <div className="collection-head">
+              <button type="button" className="btn btn--quiet btn--sm" onClick={handleBack}>
+                <ArrowLeft size={15} aria-hidden="true" />
+                All collections
               </button>
+              <h2 className="card__title" id="collection-heading">
+                {activeBook.title}
+              </h2>
             </div>
-          )}
 
-          {!loading && !error && (
-            <div className="space-y-4">
-              {filteredNarrations.map((item) => (
-                <div key={item.id} className="noor-card space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono px-2 py-0.5 bg-[var(--bg)] border border-[var(--border)] text-[var(--accent)] font-bold rounded">
-                      #{item.id}
+            {!loading && !error ? (
+              <div className="search-field hadith-search">
+                <Search size={17} className="search-field__icon" aria-hidden="true" />
+                <input
+                  type="search"
+                  className="input"
+                  placeholder={`Search inside ${activeBook.title}`}
+                  value={search}
+                  onChange={(event) => {
+                    setSearch(event.target.value);
+                    setVisibleCount(BATCH_SIZE);
+                  }}
+                  aria-label={`Search inside ${activeBook.title}`}
+                />
+                {search ? (
+                  <span className="hadith-search__count">
+                    {activeFilteredTotal} matches
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
+
+            {loading ? <SkeletonList rows={3} /> : null}
+
+            {error ? (
+              <EmptyState
+                icon={AlertCircle}
+                title="The collection could not be loaded"
+                description="Check your connection and try again. Nothing was saved from this attempt."
+                action="Retry"
+                onClick={() => selectBook(activeBook)}
+              />
+            ) : null}
+
+            {!loading && !error ? (
+              <>
+                <div className="reading-progress">
+                  <ProgressBar
+                    value={filteredNarrations.length}
+                    max={activeFilteredTotal || 1}
+                    label={`Showing ${filteredNarrations.length} of ${activeFilteredTotal} narrations`}
+                  />
+                </div>
+
+                <div className="stack">
+                  {filteredNarrations.map((item) => {
+                    const savedItem = isSaved(activeBook.slug, item.id);
+                    return (
+                      <article key={item.id} className="hadith-card">
+                        <div className="hadith-card__head">
+                          <span className="hadith-card__source">
+                            {activeBook.title} · narration {item.id}
+                          </span>
+                          <div className="cluster">
+                            <IconButton
+                              icon={savedItem ? BookmarkCheck : Bookmark}
+                              label={
+                                savedItem
+                                  ? `Remove narration ${item.id} from saved`
+                                  : `Save narration ${item.id}`
+                              }
+                              size={17}
+                              active={savedItem}
+                              onClick={() => toggleSaved(item, activeBook)}
+                            />
+                            <IconButton
+                              icon={Share2}
+                              label={copiedId === item.id ? "Text copied" : `Share narration ${item.id}`}
+                              size={17}
+                              onClick={() => share(item, activeBook)}
+                            />
+                          </div>
+                        </div>
+
+                        <p className="hadith-card__text">{item.text}</p>
+
+                        <p className="hadith-card__foot meta">
+                          English text · verify against a printed edition before
+                          quoting
+                        </p>
+                      </article>
+                    );
+                  })}
+                </div>
+
+                {activeFilteredTotal > filteredNarrations.length ? (
+                  <div className="cluster load-more">
+                    <button type="button" className="btn btn--secondary" onClick={loadMore}>
+                      Load {Math.min(BATCH_SIZE, activeFilteredTotal - filteredNarrations.length)} more
+                    </button>
+                    <span className="meta">
+                      {activeFilteredTotal - filteredNarrations.length} remaining
                     </span>
                   </div>
-                  <p className="text-sm sm:text-base text-[var(--text-primary)] leading-relaxed">
-                    {renderHighlightedText(item.text)}
-                  </p>
-                </div>
-              ))}
+                ) : null}
 
-              {activeFilteredTotal > filteredNarrations.length && (
-                <div className="text-center pt-4">
-                  <button
-                    onClick={loadMore}
-                    className="btn btn-secondary text-xs py-2.5 px-6"
-                  >
-                    Load More Narrations (
-                    {activeFilteredTotal - filteredNarrations.length} remaining)
-                  </button>
-                </div>
-              )}
+                {filteredNarrations.length === 0 ? (
+                  <EmptyState
+                    icon={RefreshCw}
+                    title="No narrations match that search"
+                    description="Try a shorter phrase, or clear the search to browse the collection from the beginning."
+                    action="Clear search"
+                    onClick={() => setSearch("")}
+                  />
+                ) : null}
+              </>
+            ) : null}
+          </section>
+        )}
 
-              {filteredNarrations.length === 0 && (
-                <div className="text-center text-[var(--text-muted)] py-12 text-sm font-mono">
-                  No narrations match your search query.
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+        <Notice tone="sand">
+          <strong>Source.</strong> Narration text from the fawazahmed0/hadith-api
+          editions. Licensing and content review are still being verified, and
+          grading, narrator chains and explanatory notes are not included.
+        </Notice>
+      </div>
     </div>
   );
 }

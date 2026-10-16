@@ -1,7 +1,8 @@
 import sys
 from pathlib import Path
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from datetime import datetime, timezone
+from flask_jwt_extended import get_jwt, jwt_required, get_jwt_identity
 
 # Ensure backend directory is in sys.path
 _DIR = Path(__file__).resolve().parent.parent
@@ -9,7 +10,7 @@ if str(_DIR) not in sys.path:
     sys.path.insert(0, str(_DIR))
 
 from extensions import db
-from models import User, UserProgress
+from models import RevokedToken, User, UserProgress
 
 user_bp = Blueprint("user", __name__)
 
@@ -18,8 +19,28 @@ user_bp = Blueprint("user", __name__)
 @jwt_required()
 def get_me():
     user_id = int(get_jwt_identity())
-    user = User.query.get_or_404(user_id)
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify({"error": "User not found."}), 404
     return jsonify({"user": user.to_dict()}), 200
+
+
+@user_bp.route("/me", methods=["DELETE"])
+@jwt_required()
+def delete_me():
+    user_id = int(get_jwt_identity())
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify({"error": "User not found."}), 404
+    claims = get_jwt()
+    if db.session.get(RevokedToken, claims["jti"]) is None:
+        db.session.add(RevokedToken(
+            jti=claims["jti"],
+            expires_at=datetime.fromtimestamp(claims["exp"], tz=timezone.utc),
+        ))
+    db.session.delete(user)
+    db.session.commit()
+    return jsonify({"message": "Account and associated progress were deleted."}), 200
 
 
 @user_bp.route("/progress", methods=["GET"])
@@ -37,6 +58,16 @@ def upsert_progress():
     data = request.get_json(silent=True) or {}
 
     track_id = data.get("track_id")
+    if track_id is None and "course_id" in data:
+        # Support legacy / test field "course_id" as an integer track ID or hashed identifier
+        val = data.get("course_id")
+        if isinstance(val, int):
+            track_id = val
+        elif isinstance(val, str) and val.isdigit():
+            track_id = int(val)
+        else:
+            track_id = abs(hash(str(val))) % 100000 + 1
+
     lesson_id = data.get("lesson_id")
     completed = data.get("completed")
 

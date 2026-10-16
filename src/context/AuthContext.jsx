@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -50,6 +51,29 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(() => getStoredToken());
   const [loading, setLoading] = useState(() => !!getStoredToken());
+  const refreshPromiseRef = useRef(null);
+
+  const refreshSession = useCallback(() => {
+    const refresh = sessionStorage.getItem(REFRESH_KEY);
+    if (!refresh) return Promise.resolve(null);
+    if (!refreshPromiseRef.current) {
+      refreshPromiseRef.current = apiRequest("/api/auth/refresh", { method: "POST" }, refresh)
+        .then(({ ok, data }) => {
+          if (!ok || !data.access_token || !data.refresh_token) {
+            clearTokens();
+            setToken(null);
+            setUser(null);
+            return null;
+          }
+          saveTokens(data.access_token, data.refresh_token);
+          setToken(data.access_token);
+          return data.access_token;
+        })
+        .catch(() => null)
+        .finally(() => { refreshPromiseRef.current = null; });
+    }
+    return refreshPromiseRef.current;
+  }, []);
 
   /** Re-hydrate user from stored token on app mount if token exists. */
   useEffect(() => {
@@ -58,22 +82,32 @@ export function AuthProvider({ children }) {
       return;
     }
 
-    apiRequest("/api/user/me", { method: "GET" }, stored)
-      .then(({ ok, data }) => {
-        if (ok && data.user) {
-          setUser(data.user);
-          setToken(stored);
-        } else {
+    let mounted = true;
+    const restore = async () => {
+      try {
+        let current = stored;
+        let response = await apiRequest("/api/user/me", { method: "GET" }, current);
+        if (response.status === 401) {
+          current = await refreshSession();
+          if (current) response = await apiRequest("/api/user/me", { method: "GET" }, current);
+        }
+        if (!mounted) return;
+        if (response.ok && response.data.user) {
+          setUser(response.data.user);
+          setToken(current);
+        } else if (response.status === 401 || response.status === 404) {
           clearTokens();
           setToken(null);
         }
-      })
-      .catch(() => {
-        clearTokens();
-        setToken(null);
-      })
-      .finally(() => setLoading(false));
-  }, []);
+      } catch {
+        // Keep the session tokens during a temporary offline/API outage.
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    restore();
+    return () => { mounted = false; };
+  }, [refreshSession]);
 
   /** Register a new user. Returns { errors } on failure or sets user on success. */
   const register = useCallback(async ({ name, email, password }) => {
@@ -114,20 +148,39 @@ export function AuthProvider({ children }) {
   /** Sign out the current user. */
   const logout = useCallback(async () => {
     if (token) {
-      await apiRequest("/api/auth/logout", { method: "POST" }, token).catch(
-        () => {},
-      );
+      const revoke = (accessToken) => apiRequest("/api/auth/logout", {
+        method: "POST",
+        body: JSON.stringify({ refresh_token: sessionStorage.getItem(REFRESH_KEY) }),
+      }, accessToken);
+      let response = await revoke(token).catch(() => null);
+      if (response?.status === 401) {
+        const renewedToken = await refreshSession();
+        if (renewedToken) await revoke(renewedToken).catch(() => null);
+      }
     }
     clearTokens();
     setToken(null);
     setUser(null);
-  }, [token]);
+  }, [token, refreshSession]);
 
   /** Make an authenticated request using the stored token. */
-  const authFetch = useCallback(
-    (path, options = {}) => apiRequest(path, options, token),
-    [token],
-  );
+  const authFetch = useCallback(async (path, options = {}) => {
+    let response = await apiRequest(path, options, token);
+    if (response.status !== 401) return response;
+    const renewedToken = await refreshSession();
+    if (!renewedToken) return response;
+    response = await apiRequest(path, options, renewedToken);
+    return response;
+  }, [token, refreshSession]);
+
+  const deleteAccount = useCallback(async () => {
+    let response = await authFetch("/api/user/me", { method: "DELETE" });
+    if (!response.ok) return { errors: response.data.errors ?? [response.data.error ?? "Account deletion failed."] };
+    clearTokens();
+    setToken(null);
+    setUser(null);
+    return { errors: null };
+  }, [authFetch]);
 
   return (
     <AuthContext.Provider
@@ -139,6 +192,7 @@ export function AuthProvider({ children }) {
         register,
         login,
         logout,
+        deleteAccount,
         authFetch,
       }}
     >

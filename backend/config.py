@@ -21,11 +21,12 @@ class Config:
     """Flask configuration loaded from environment variables."""
 
     # ── Core Flask ───────────────────────────────────────────────────────────
+    APP_ENV = os.getenv("APP_ENV", "development").lower()
     SECRET_KEY = _get_env(
         "FLASK_SECRET_KEY",
         "dev-secret-key-noorhub-2026-change-in-production-abcdef123456",
     )
-    DEBUG = os.getenv("FLASK_DEBUG", "true").lower() == "true"
+    DEBUG = os.getenv("FLASK_DEBUG", "false").lower() == "true"
 
     # ── Database ─────────────────────────────────────────────────────────────
     # Use sqlite:///noorhub_dev.db by default
@@ -47,6 +48,19 @@ class Config:
 
     # ── CORS ─────────────────────────────────────────────────────────────────
     ALLOWED_ORIGIN = os.getenv("ALLOWED_ORIGIN", "http://localhost:5173")
+    API_ORIGIN = os.getenv("API_ORIGIN", "http://localhost:5000")
+
+    if APP_ENV == "production":
+        if DEBUG:
+            raise RuntimeError("FLASK_DEBUG must be false in production.")
+        required = ["FLASK_SECRET_KEY", "JWT_SECRET_KEY", "DATABASE_URL", "ALLOWED_ORIGIN", "API_ORIGIN"]
+        missing = [name for name in required if not os.getenv(name)]
+        if missing:
+            raise RuntimeError("Missing required production configuration: " + ", ".join(missing))
+        if not os.getenv("ALLOWED_ORIGIN", "").startswith("https://"):
+            raise RuntimeError("ALLOWED_ORIGIN must use HTTPS in production.")
+        if not os.getenv("API_ORIGIN", "").startswith("https://"):
+            raise RuntimeError("API_ORIGIN must use HTTPS in production.")
 
     # ── Google OAuth (optional) ───────────────────────────────────────────────
     GOOGLE_OAUTH_CLIENT_ID = os.getenv("GOOGLE_OAUTH_CLIENT_ID")

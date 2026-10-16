@@ -1,7 +1,13 @@
-import { AlertCircle, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { AlertCircle, UserPlus } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+
+const POINTS = [
+  "Sync lesson progress so you can finish a course on another device.",
+  "Reading bookmarks, notes, Hifz plans and prayer logs stay in this browser by default.",
+  "Delete your account at any time from your profile page.",
+];
 
 export default function Register() {
   const navigate = useNavigate();
@@ -16,8 +22,8 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState([]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setErrors([]);
 
     if (formData.password !== formData.confirmPassword) {
@@ -33,16 +39,16 @@ export default function Register() {
     setLoading(true);
 
     try {
-      const res = await register({
+      const result = await register({
         name: formData.name,
         email: formData.email,
         password: formData.password,
       });
 
-      if (res.errors) {
-        setErrors(res.errors);
+      if (result.errors) {
+        setErrors(result.errors);
       } else {
-        navigate("/learn");
+        navigate("/");
       }
     } catch {
       setErrors(["An unexpected error occurred. Please try again."]);
@@ -52,127 +58,124 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-[70vh] flex items-center justify-center px-4 py-8">
-      <div className="noor-card w-full max-w-md space-y-6 p-6 sm:p-8">
-        <div className="text-center space-y-2">
-          <span className="label-badge">Registration</span>
-          <h1 className="text-2xl sm:text-3xl font-bold text-[var(--text-primary)]">
-            Join NoorHub
-          </h1>
-          <p className="text-sm text-[var(--text-secondary)]">
-            Create an account to track your study goals and Quran recitations.
+    <div className="container">
+      <div className="auth">
+        <aside className="auth__aside">
+          <span className="page-head__eyebrow">Account</span>
+          <p className="auth__quote">
+            “The best of you are those who learn the Quran and teach it.”
           </p>
-        </div>
+          <p className="auth__cite">Sahih al-Bukhari 5027</p>
 
-        {errors.length > 0 && (
-          <div className="p-3.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-start gap-2">
-            <AlertCircle size={16} className="shrink-0 mt-0.5" />
-            <div className="space-y-0.5">
-              {errors.map((err, i) => (
-                <p key={i}>{err}</p>
-              ))}
+          <ul className="auth__points">
+            {POINTS.map((point) => (
+              <li key={point} className="auth__point">
+                <span className="auth__point-bullet" aria-hidden="true" />
+                {point}
+              </li>
+            ))}
+          </ul>
+        </aside>
+
+        <div className="auth__card">
+          <h1 className="auth__title">Create an account</h1>
+          <p className="auth__sub">
+            An account is only needed to sync learning progress. Everything else
+            works without signing in.
+          </p>
+
+          {errors.length > 0 ? (
+            <div className="notice notice--danger auth__errors" role="alert">
+              <AlertCircle size={17} className="notice__icon" aria-hidden="true" />
+              <div>
+                {errors.map((error) => (
+                  <p key={error}>{error}</p>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          ) : null}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-xs font-mono font-semibold tracking-wider text-[var(--text-secondary)] uppercase">
-              Full Name
+          <form className="auth__form" onSubmit={handleSubmit}>
+            <label className="field">
+              <span className="field__label">Full name</span>
+              <input
+                type="text"
+                required
+                autoComplete="name"
+                placeholder="Your name"
+                className="input"
+                value={formData.name}
+                onChange={(event) =>
+                  setFormData({ ...formData, name: event.target.value })
+                }
+                disabled={loading}
+              />
             </label>
-            <input
-              type="text"
-              required
-              autoComplete="name"
-              placeholder="Abdullah"
-              className="noor-input"
-              value={formData.name}
-              onChange={(e) =>
-                setFormData({ ...formData, name: e.target.value })
-              }
-              disabled={loading}
-            />
-          </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-mono font-semibold tracking-wider text-[var(--text-secondary)] uppercase">
-              Email Address
+            <label className="field">
+              <span className="field__label">Email address</span>
+              <input
+                type="email"
+                required
+                autoComplete="email"
+                placeholder="you@example.com"
+                className="input"
+                value={formData.email}
+                onChange={(event) =>
+                  setFormData({ ...formData, email: event.target.value })
+                }
+                disabled={loading}
+              />
             </label>
-            <input
-              type="email"
-              required
-              autoComplete="email"
-              placeholder="you@example.com"
-              className="noor-input"
-              value={formData.email}
-              onChange={(e) =>
-                setFormData({ ...formData, email: e.target.value })
-              }
-              disabled={loading}
-            />
-          </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-mono font-semibold tracking-wider text-[var(--text-secondary)] uppercase">
-              Password
+            <label className="field">
+              <span className="field__label">Password</span>
+              <input
+                type="password"
+                required
+                autoComplete="new-password"
+                placeholder="At least 8 characters"
+                className="input"
+                value={formData.password}
+                onChange={(event) =>
+                  setFormData({ ...formData, password: event.target.value })
+                }
+                disabled={loading}
+              />
+              <span className="field__hint">
+                Use at least 8 characters. A passphrase is easier to remember and
+                harder to guess.
+              </span>
             </label>
-            <input
-              type="password"
-              required
-              autoComplete="new-password"
-              placeholder="At least 8 characters"
-              className="noor-input"
-              value={formData.password}
-              onChange={(e) =>
-                setFormData({ ...formData, password: e.target.value })
-              }
-              disabled={loading}
-            />
-          </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-mono font-semibold tracking-wider text-[var(--text-secondary)] uppercase">
-              Confirm Password
+            <label className="field">
+              <span className="field__label">Confirm password</span>
+              <input
+                type="password"
+                required
+                autoComplete="new-password"
+                placeholder="Re-enter your password"
+                className="input"
+                value={formData.confirmPassword}
+                onChange={(event) =>
+                  setFormData({ ...formData, confirmPassword: event.target.value })
+                }
+                disabled={loading}
+              />
             </label>
-            <input
-              type="password"
-              required
-              autoComplete="new-password"
-              placeholder="Re-enter password"
-              className="noor-input"
-              value={formData.confirmPassword}
-              onChange={(e) =>
-                setFormData({ ...formData, confirmPassword: e.target.value })
-              }
+
+            <button
+              type="submit"
+              className="btn btn--primary btn--lg btn--block"
               disabled={loading}
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full btn btn-primary py-3 text-sm font-bold tracking-wider uppercase mt-2"
-          >
-            {loading ? (
-              "Creating Account..."
-            ) : (
-              <>
-                <UserPlus size={15} />
-                Create Account
-              </>
-            )}
-          </button>
-        </form>
-
-        <div className="text-center pt-2">
-          <p className="text-xs text-[var(--text-secondary)]">
-            Already have an account?{" "}
-            <Link
-              to="/login"
-              className="text-[var(--accent)] hover:underline font-semibold"
             >
-              Sign In
-            </Link>
+              <UserPlus size={16} aria-hidden="true" />
+              {loading ? "Creating account…" : "Create account"}
+            </button>
+          </form>
+
+          <p className="auth__alt">
+            Already have an account? <Link to="/login">Sign in</Link>.
           </p>
         </div>
       </div>

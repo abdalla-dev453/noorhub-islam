@@ -1,332 +1,632 @@
-import { Pause, Play, Search, Volume2, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Bookmark, BookOpen } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "../utils/api";
+import { readLocal, writeLocal } from "../utils/localData";
+import { useAppearance } from "../hooks/useAppearance";
+import { usePersistentState } from "../hooks/usePersistentState";
+import {
+  DEFAULT_READING_OPTIONS,
+  READING_SECTIONS,
+  RECITERS,
+} from "../data/quran";
+import ChapterNavigator from "../components/quran/ChapterNavigator";
+import ReaderToolbar from "../components/quran/ReaderToolbar";
+import ReadingOptionsSheet from "../components/quran/ReadingOptionsSheet";
+import VerseRow from "../components/ui/VerseRow";
+import Sheet from "../components/ui/Sheet";
+import Notice from "../components/ui/Notice";
+import EmptyState from "../components/ui/EmptyState";
+import { SkeletonList } from "../components/ui/Skeleton";
 
-const RECITERS = [
-  { id: "ar.alafasy", name: "Mishary Rashid Alafasy" },
-  { id: "ar.minshawi", name: "Muhammad Siddiq al-Minshawi" },
-  { id: "ar.abdulbasit", name: "Abdul Basit Abdul Samad" },
-  { id: "ar.husary", name: "Mahmoud Khalil Al-Husary" },
-  { id: "ar.ghamadi", name: "Saad Al-Ghamdi" },
-];
+const POSITION_KEY = "noorhub_quran_position";
+const AYAHS_KEY = "noorhub_quran_ayahs";
+const OPTIONS_KEY = "noorhub_reading_options";
 
 export default function Quran() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { appearance, setAppearance } = useAppearance();
+  const [options, setOptions] = usePersistentState(OPTIONS_KEY, DEFAULT_READING_OPTIONS);
+  const readingOptions = useMemo(
+    () => ({ ...DEFAULT_READING_OPTIONS, ...options }),
+    [options],
+  );
+
   const [surahs, setSurahs] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
-  // Modal & Audio Tracking States
   const [activeSurah, setActiveSurah] = useState(null);
+  const [activeKind, setActiveKind] = useState("surah");
   const [verses, setVerses] = useState([]);
-  const [modalLoading, setModalLoading] = useState(false);
+  const [sectionLoading, setSectionLoading] = useState(false);
+  const [sectionError, setSectionError] = useState("");
 
-  const [selectedReciter, setSelectedReciter] = useState("ar.alafasy");
   const [playingAyahIndex, setPlayingAyahIndex] = useState(null);
-  const [isContinuous, setIsContinuous] = useState(true);
+  const [paused, setPaused] = useState(false);
+  const [savedAyahs, setSavedAyahs] = useState(() => readLocal(AYAHS_KEY, {}));
+  const [lastReading, setLastReading] = useState(() => readLocal(POSITION_KEY, null));
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [navigatorOpen, setNavigatorOpen] = useState(false);
+  const [jumpReference, setJumpReference] = useState("");
+  const [jumpError, setJumpError] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [editingNote, setEditingNote] = useState(null);
+  const [noteDraft, setNoteDraft] = useState("");
 
   const audioRef = useRef(null);
+  const pendingAyahRef = useRef(null);
+  const handledDeepLink = useRef("");
+  const activeTargetRef = useRef({ surah: null, kind: "surah", number: null });
 
-  const stopAudio = () => {
+  /* Reading options are read through a ref so the audio and load callbacks
+     stay stable while still using the latest reciter, speed and toggles. */
+  const optionsRef = useRef(readingOptions);
+  useEffect(() => {
+    optionsRef.current = readingOptions;
+  }, [readingOptions]);
+
+  /* ── Audio ────────────────────────────────────────────────────────────── */
+  const stopAudio = useCallback(() => {
     if (audioRef.current) {
       audioRef.current.pause();
+      audioRef.current.onended = null;
       audioRef.current = null;
     }
     setPlayingAyahIndex(null);
-  };
+    setPaused(false);
+  }, []);
 
-  const playAudioStream = (versesArray, index) => {
+  /* Continuous playback recurses through a ref so the callback identity stays
+     stable for the loaders below. */
+  const playAudioStreamRef = useRef(null);
+
+  const playAudioStream = useCallback((versesArray, index) => {
     const currentAyah = versesArray[index];
-    if (!currentAyah || !currentAyah.audio) {
+    if (!currentAyah?.audio) {
       stopAudio();
       return;
     }
 
-    if (audioRef.current) {
-      audioRef.current.pause();
-    }
-
+    audioRef.current?.pause();
     setPlayingAyahIndex(index);
-    audioRef.current = new Audio(currentAyah.audio);
+    setPaused(false);
 
-    const element = document.getElementById(`ayah-${currentAyah.number}`);
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
+    const element = new Audio(currentAyah.audio);
+    element.playbackRate = optionsRef.current.speed;
+    audioRef.current = element;
 
-    audioRef.current
-      .play()
-      .catch((e) => console.error("Audio playback interrupted:", e));
+    document
+      .getElementById(`ayah-${currentAyah.anchor}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
 
-    audioRef.current.onended = () => {
+    element.play().catch((error) => {
+      console.error("Audio playback interrupted:", error);
+      setPlayingAyahIndex(null);
+    });
+
+    element.onended = () => {
       const nextIndex = index + 1;
-      if (isContinuous && nextIndex < versesArray.length) {
-        playAudioStream(versesArray, nextIndex);
+      if (optionsRef.current.continuous && nextIndex < versesArray.length) {
+        playAudioStreamRef.current?.(versesArray, nextIndex);
       } else {
         setPlayingAyahIndex(null);
       }
     };
-  };
+  }, [stopAudio]);
 
-  const loadSurahContent = async (
-    surah,
-    resumeIndex = null,
-    reciter = selectedReciter,
-  ) => {
-    setModalLoading(true);
-    try {
-      const data = await api.getSurahDetails(surah.id, reciter);
-      const integratedVerses = data.arabicVerses.map((ayah, i) => ({
-        index: i,
-        number: ayah.numberInSurah,
-        text: ayah.text,
-        translation: data.englishVerses[i]?.text || "",
-        audio: data.audioVerses[i]?.audio || "",
-      }));
+  useEffect(() => {
+    playAudioStreamRef.current = playAudioStream;
+  }, [playAudioStream]);
 
-      setVerses(integratedVerses);
-
-      if (resumeIndex !== null && integratedVerses[resumeIndex]) {
-        playAudioStream(integratedVerses, resumeIndex);
-      }
-    } catch (err) {
-      console.error("Failed to load surah details:", err);
-    } finally {
-      setModalLoading(false);
+  const togglePlayPause = (index) => {
+    if (playingAyahIndex !== index) {
+      playAudioStream(verses, index);
+      return;
+    }
+    const element = audioRef.current;
+    if (!element) return;
+    if (element.paused) {
+      element.play().catch(() => setPlayingAyahIndex(null));
+      setPaused(false);
+    } else {
+      element.pause();
+      setPaused(true);
     }
   };
 
+  const playFromStart = () => {
+    if (verses.length > 0) playAudioStream(verses, 0);
+  };
+
+  /* ── Content loading ──────────────────────────────────────────────────── */
+  const loadSurahContent = useCallback(async (surah, resumeIndex = null) => {
+    const { reciter, showTransliteration } = optionsRef.current;
+    setSectionLoading(true);
+    setSectionError("");
+    try {
+      const data = await api.getSurahDetails(surah.id, reciter, undefined, {
+        transliteration: showTransliteration,
+      });
+      const integrated = data.arabicVerses.map((ayah, index) => ({
+        index,
+        number: ayah.numberInSurah,
+        surahId: surah.id,
+        surahName: surah.name,
+        anchor: `${surah.id}:${ayah.numberInSurah}`,
+        reference: `${surah.name} ${ayah.numberInSurah}`,
+        text: ayah.text,
+        translation: data.englishVerses[index]?.text || "",
+        transliteration: data.transliterationVerses[index]?.text || "",
+        audio: data.audioVerses[index]?.audio || "",
+      }));
+      setVerses(integrated);
+
+      if (resumeIndex !== null && integrated[resumeIndex]) {
+        playAudioStream(integrated, resumeIndex);
+      }
+    } catch (error) {
+      console.error("Failed to load surah details:", error);
+      setVerses([]);
+      setSectionError(
+        "This surah could not be loaded. Check your connection and try again.",
+      );
+    } finally {
+      setSectionLoading(false);
+    }
+  }, [playAudioStream]);
+
+  const loadReadingSection = useCallback(async (kind, number) => {
+    const section = READING_SECTIONS[kind];
+    const value = Number(number);
+    if (!section || !Number.isInteger(value) || value < 1 || value > section.max) return;
+
+    const { reciter } = optionsRef.current;
+    setSectionLoading(true);
+    setSectionError("");
+    try {
+      const data = await api.getReadingSection(kind, value, reciter);
+      const integrated = data.arabicVerses.map((ayah, index) => ({
+        index,
+        number: ayah.numberInSurah,
+        surahId: ayah.surah?.number,
+        surahName: ayah.surah?.englishName || ayah.surah?.name || "Surah",
+        anchor: `${ayah.surah?.number}:${ayah.numberInSurah}`,
+        reference: `${ayah.surah?.englishName || "Surah"} ${ayah.numberInSurah}`,
+        text: ayah.text,
+        translation: data.englishVerses[index]?.text || "",
+        transliteration: "",
+        audio: data.audioVerses[index]?.audio || "",
+      }));
+      setVerses(integrated);
+    } catch (error) {
+      console.error("Failed to load Quran section:", error);
+      setVerses([]);
+      setSectionError(
+        `Could not load ${section.label} ${value}. Check your connection and try again.`,
+      );
+    } finally {
+      setSectionLoading(false);
+    }
+  }, []);
+
+  const openSurahReader = (surah, targetAyah = null) => {
+    stopAudio();
+    setSectionError("");
+    setJumpError("");
+    setActiveSurah(surah);
+    setActiveKind("surah");
+    activeTargetRef.current = { surah, kind: "surah", number: surah.id };
+    pendingAyahRef.current = targetAyah ? `${surah.id}:${targetAyah}` : null;
+
+    const position = { ...surah, kind: "surah", ayah: targetAyah ?? 1 };
+    setLastReading(position);
+    writeLocal(POSITION_KEY, position);
+    loadSurahContent(surah);
+  };
+  const openSurahReaderRef = useRef(openSurahReader);
+
+  const openReadingSection = (kind, number) => {
+    const section = READING_SECTIONS[kind];
+    const value = Number(number);
+    if (!section || !Number.isInteger(value) || value < 1 || value > section.max) return;
+
+    stopAudio();
+    const reading = {
+      kind,
+      number: value,
+      name: `${section.label} ${value}`,
+      meaning: "Reading section",
+    };
+    setSectionError("");
+    setJumpError("");
+    setActiveSurah(reading);
+    setActiveKind(kind);
+    activeTargetRef.current = { surah: reading, kind, number: value };
+    setLastReading(reading);
+    writeLocal(POSITION_KEY, reading);
+    pendingAyahRef.current = null;
+    loadReadingSection(kind, value);
+  };
+
+  /* ── Surah index ──────────────────────────────────────────────────────── */
   useEffect(() => {
     const controller = new AbortController();
     api
       .getAllSurahs(controller.signal)
       .then(setSurahs)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-
+      .catch((error) => {
+        // StrictMode mounts effects twice, so an aborted request is expected
+        // and must not surface as an error.
+        if (error.name === "AbortError") return;
+        setLoadError(
+          "The surah index could not be loaded. Check your connection and try again.",
+        );
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
     return () => controller.abort();
   }, []);
 
-  const openSurahReader = (surah) => {
-    setActiveSurah(surah);
-    loadSurahContent(surah);
-  };
+  /* ── Deep links: /quran?surah=2&ayah=255 ───────────────────────────────── */
+  const deepLinkSurah = searchParams.get("surah");
+  const deepLinkAyah = searchParams.get("ayah");
 
-  const handleReciterChange = (event) => {
-    const nextReciter = event.target.value;
-    setSelectedReciter(nextReciter);
-
-    if (activeSurah) {
-      stopAudio();
-      loadSurahContent(activeSurah, playingAyahIndex, nextReciter);
+  useEffect(() => {
+    if (!deepLinkSurah) {
+      handledDeepLink.current = "";
+      return;
     }
-  };
+    if (!surahs.length) return;
 
-  const togglePlayPause = (index) => {
-    if (playingAyahIndex === index) {
-      if (audioRef.current && !audioRef.current.paused) {
-        audioRef.current.pause();
-        setPlayingAyahIndex(null);
-      } else if (audioRef.current) {
-        audioRef.current.play();
-        setPlayingAyahIndex(index);
-      }
+    const linkKey = `${deepLinkSurah}:${deepLinkAyah || ""}`;
+    if (handledDeepLink.current === linkKey) return;
+
+    const surah = surahs.find((item) => item.id === Number(deepLinkSurah));
+    if (!surah) return;
+
+    handledDeepLink.current = linkKey;
+    const parsedAyah = Number(deepLinkAyah);
+    const ayah = Number.isInteger(parsedAyah) && parsedAyah > 0 ? parsedAyah : null;
+    openSurahReaderRef.current(surah, ayah);
+    setSearchParams({}, { replace: true });
+  }, [surahs, deepLinkSurah, deepLinkAyah, setSearchParams]);
+
+  /* ── Scroll to the requested ayah once its verses arrive ───────────────── */
+  useEffect(() => {
+    const target = pendingAyahRef.current;
+    if (!activeSurah || !verses.length || !target) return undefined;
+    const frame = requestAnimationFrame(() => {
+      document.getElementById(`ayah-${target}`)?.scrollIntoView({ block: "center" });
+      pendingAyahRef.current = null;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [activeSurah, verses]);
+
+  /* ── Persistence ──────────────────────────────────────────────────────── */
+  useEffect(() => writeLocal(AYAHS_KEY, savedAyahs), [savedAyahs]);
+
+  /* ── Reload the open section when the reciter or transliteration changes ── */
+  const { reciter, showTransliteration } = readingOptions;
+  useEffect(() => {
+    const { surah, kind, number } = activeTargetRef.current;
+    if (!surah) return undefined;
+    if (kind === "surah") {
+      loadSurahContent(surah);
     } else {
-      playAudioStream(verses, index);
+      loadReadingSection(kind, number);
+    }
+    return undefined;
+  }, [reciter, showTransliteration, loadSurahContent, loadReadingSection]);
+
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.playbackRate = readingOptions.speed;
+  }, [readingOptions.speed]);
+
+  /* ── Actions ──────────────────────────────────────────────────────────── */
+  const continueReading = () => {
+    if (!lastReading) return;
+    if (lastReading.kind === "surah") {
+      const surah = surahs.find((item) => item.id === lastReading.id);
+      if (surah) openSurahReader(surah, lastReading.ayah ?? null);
+    } else {
+      openReadingSection(lastReading.kind, lastReading.number);
     }
   };
 
-  const playFullSurah = () => {
-    if (verses.length > 0) {
-      playAudioStream(verses, 0);
+  const toggleBookmark = (verse) => {
+    const key = `${verse.surahId}:${verse.number}`;
+    setSavedAyahs((previous) => {
+      const entry = previous[key];
+      if (entry?.bookmarked) {
+        const { bookmarked, ...rest } = entry;
+        void bookmarked;
+        const next = { ...previous, [key]: rest };
+        if (!Object.values(rest).some(Boolean)) delete next[key];
+        return next;
+      }
+      return { ...previous, [key]: { ...entry, bookmarked: true } };
+    });
+  };
+
+  const toggleHighlight = (verse) => {
+    const key = `${verse.surahId}:${verse.number}`;
+    setSavedAyahs((previous) => {
+      const entry = { ...(previous[key] || {}), highlight: !previous[key]?.highlight };
+      const next = { ...previous, [key]: entry };
+      if (!Object.values(entry).some(Boolean)) delete next[key];
+      return next;
+    });
+  };
+
+  const openNoteEditor = (verse) => {
+    const existing = savedAyahs[`${verse.surahId}:${verse.number}`]?.note || "";
+    setEditingNote(`${verse.surahId}:${verse.number}`);
+    setNoteDraft(existing);
+  };
+
+  const saveNote = (verse) => {
+    const key = `${verse.surahId}:${verse.number}`;
+    const value = noteDraft.trim();
+    setSavedAyahs((previous) => {
+      const entry = { ...(previous[key] || {}), note: value };
+      const next = { ...previous, [key]: entry };
+      if (!Object.values(entry).some(Boolean)) delete next[key];
+      return next;
+    });
+    setEditingNote(null);
+    setNoteDraft("");
+  };
+
+  const shareAyah = async (verse) => {
+    const url = `${window.location.origin}/quran?surah=${verse.surahId}&ayah=${verse.number}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `Quran ${verse.reference}`, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 2400);
+      }
+    } catch {
+      /* the share sheet was dismissed */
     }
   };
 
-  const handleCloseModal = () => {
-    stopAudio();
-    setActiveSurah(null);
-    setVerses([]);
-    setPlayingAyahIndex(null);
+  const handleJump = (event) => {
+    event.preventDefault();
+    const match = jumpReference.trim().match(/^(\d{1,3})\s*[:.]\s*(\d{1,3})$/);
+    if (!match) {
+      setJumpError("Enter a reference such as 2:255.");
+      return;
+    }
+    const surahId = Number(match[1]);
+    const ayah = Number(match[2]);
+    const surah = surahs.find((item) => item.id === surahId);
+    if (!surah || ayah > surah.verses) {
+      setJumpError("That surah and ayah reference was not found.");
+      return;
+    }
+    setJumpError("");
+    setSearchParams({ surah: String(surahId), ayah: String(ayah) });
   };
 
-  const filteredSurahs = surahs.filter(
-    (s) =>
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.id.toString() === search.trim(),
+  const hasPosition = Boolean(lastReading?.name);
+  const resumeVisible =
+    hasPosition &&
+    !sectionLoading &&
+    (lastReading.kind !== "surah" || activeSurah?.id !== lastReading.id);
+
+  const savedCount = useMemo(
+    () => Object.values(savedAyahs).filter((entry) => entry?.bookmarked).length,
+    [savedAyahs],
   );
 
   return (
-    <div className="space-y-10">
-      {/* Header */}
-      <div className="text-center space-y-3">
-        <span className="label-badge">Holy Text</span>
-        <h1 className="section-title">The Noble Quran</h1>
-        <p className="section-sub">
-          Read verses in clear Arabic script with English translation and listen
-          to high quality audio recitations.
-        </p>
-      </div>
+    <div className="page">
+      <div className="container container--reading">
+        <header className="page-head">
+          <span className="page-head__eyebrow">Quran</span>
+          <h1 className="page-head__title">Read and listen</h1>
+          <div className="page-head__meta">
+            <span>Arabic: Uthmani edition</span>
+            <span aria-hidden="true">·</span>
+            <span>Translation: Sahih International</span>
+            <span aria-hidden="true">·</span>
+            <span>Text and audio: AlQuran Cloud</span>
+          </div>
+          <p className="page-head__meta">
+            <span>
+              {savedCount} bookmarked {savedCount === 1 ? "ayah" : "ayahs"} on
+              this device
+            </span>
+          </p>
+        </header>
 
-      {/* Search */}
-      <div className="max-w-md mx-auto relative">
-        <Search
-          size={16}
-          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none"
-        />
-        <input
-          type="text"
-          placeholder="Search by chapter number, name, or meaning..."
-          className="noor-input pl-10"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
+        <div className="reader" data-font-size={readingOptions.fontSize}>
+          <aside className="navigator" aria-label="Chapter navigator">
+            <ChapterNavigator
+              surahs={surahs}
+              loading={loading}
+              activeSurahId={activeSurah?.id}
+              search={search}
+              onSearchChange={setSearch}
+              onSelectSurah={(surah) => openSurahReader(surah)}
+              onSelectSection={openReadingSection}
+            />
+          </aside>
 
-      {loading ? (
-        <div className="text-center text-sm font-mono text-[var(--accent)] animate-pulse py-12">
-          Loading Surah index...
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-6xl mx-auto">
-          {filteredSurahs.map((surah) => (
-            <div
-              key={surah.id}
-              onClick={() => openSurahReader(surah)}
-              className="noor-card group cursor-pointer flex justify-between items-center p-4 hover:border-[var(--accent)]"
-            >
-              <div className="flex items-center gap-3.5">
-                <div className="w-9 h-9 rounded-lg bg-[var(--surface-hover)] border border-[var(--border)] flex items-center justify-center text-xs font-mono font-bold text-[var(--accent)] shrink-0">
-                  {surah.id}
-                </div>
-                <div>
-                  <h3 className="font-semibold text-sm text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
-                    {surah.name}
-                  </h3>
-                  <p className="text-xs text-[var(--text-secondary)]">
-                    {surah.meaning} • {surah.verses} verses
-                  </p>
-                </div>
-              </div>
-              <p className="arabic text-lg text-[var(--accent)]" lang="ar">
-                {surah.arabic}
+          <div className="stack reader__column">
+            {loadError ? <Notice tone="danger">{loadError}</Notice> : null}
+
+            <ReaderToolbar
+              surah={activeSurah}
+              kind={activeKind}
+              verseCount={verses.length}
+              playing={playingAyahIndex !== null && !paused}
+              loading={sectionLoading}
+              onPlayAll={playFromStart}
+              onPause={stopAudio}
+              onOpenOptions={() => setOptionsOpen(true)}
+              onOpenNavigator={() => setNavigatorOpen(true)}
+              onJump={handleJump}
+              jumpValue={jumpReference}
+              onJumpChange={setJumpReference}
+              jumpError={jumpError}
+            />
+
+            {jumpError ? (
+              <p className="field__error" role="alert">
+                {jumpError}
               </p>
-            </div>
-          ))}
-        </div>
-      )}
+            ) : null}
 
-      {/* Surah Reader Modal */}
-      {activeSurah && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="bg-[var(--surface)] border border-[var(--border)] w-full max-w-4xl h-[85vh] rounded-2xl flex flex-col shadow-xl overflow-hidden">
-            {/* Modal Header */}
-            <div className="p-4 sm:p-5 border-b border-[var(--border)] flex flex-col sm:flex-row gap-4 justify-between sm:items-center bg-[var(--surface)]">
-              <div>
-                <h2 className="text-lg sm:text-xl font-bold text-[var(--text-primary)] flex items-center gap-2">
-                  <span>{activeSurah.name}</span>
-                  <span className="text-xs font-normal text-[var(--text-secondary)]">
-                    ({activeSurah.meaning})
-                  </span>
-                </h2>
-                <div className="flex items-center gap-3 mt-1.5">
-                  <button
-                    onClick={playFullSurah}
-                    disabled={modalLoading}
-                    className="btn btn-primary text-xs py-1 px-3"
-                  >
-                    <Volume2 size={13} />
-                    Play Surah
-                  </button>
-                  <label className="flex items-center gap-1.5 cursor-pointer text-xs text-[var(--text-secondary)] select-none">
-                    <input
-                      type="checkbox"
-                      checked={isContinuous}
-                      onChange={(e) => setIsContinuous(e.target.checked)}
-                      className="accent-[var(--accent)] cursor-pointer w-3.5 h-3.5"
-                    />
-                    Autoplay Next
-                  </label>
+            {copied ? (
+              <p className="field__hint" role="status">
+                Link to this ayah copied to the clipboard.
+              </p>
+            ) : null}
+
+            {resumeVisible ? (
+              <div className="resume-callout">
+                <div>
+                  <p className="resume-callout__label">Continue from last verse</p>
+                  <p className="resume-callout__text">{lastReading.name}</p>
                 </div>
-              </div>
-
-              {/* Reciter selector & Close */}
-              <div className="flex items-center gap-2">
-                <select
-                  value={selectedReciter}
-                  onChange={handleReciterChange}
-                  className="bg-[var(--bg)] border border-[var(--border)] rounded-md px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] cursor-pointer"
-                >
-                  {RECITERS.map((qari) => (
-                    <option key={qari.id} value={qari.id}>
-                      {qari.name}
-                    </option>
-                  ))}
-                </select>
                 <button
-                  onClick={handleCloseModal}
-                  className="btn btn-ghost w-8 h-8 p-0 rounded-md"
-                  aria-label="Close reader"
+                  type="button"
+                  className="btn btn--secondary btn--sm"
+                  onClick={continueReading}
                 >
-                  <X size={16} />
+                  <BookOpen size={15} aria-hidden="true" />
+                  Continue
                 </button>
               </div>
-            </div>
+            ) : null}
 
-            {/* Verses Scroll Area */}
-            <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-6">
-              {modalLoading ? (
-                <div className="h-full flex items-center justify-center text-sm font-mono text-[var(--text-secondary)] animate-pulse">
-                  Loading verses and audio...
-                </div>
-              ) : (
-                verses.map((ayah) => {
-                  const isCurrentPlaying = playingAyahIndex === ayah.index;
+            {sectionError ? <Notice tone="danger">{sectionError}</Notice> : null}
+
+            {!activeSurah && !sectionLoading ? (
+              <EmptyState
+                icon={BookOpen}
+                title="Open a surah to begin"
+                description="Choose a chapter from the navigator, or jump straight to an ayah reference such as 2:255."
+                action="Start with Al-Fatihah"
+                onClick={() => {
+                  const surah = surahs.find((item) => item.id === 1);
+                  if (surah) openSurahReader(surah);
+                }}
+              />
+            ) : null}
+
+            {sectionLoading ? <SkeletonList rows={4} /> : null}
+
+            {!sectionLoading && verses.length > 0 ? (
+              <div className="verse-list">
+                {verses.map((verse, index) => {
+                  const saved = savedAyahs[`${verse.surahId}:${verse.number}`] || {};
+                  const noteKey = `${verse.surahId}:${verse.number}`;
                   return (
-                    <div
-                      key={ayah.index}
-                      id={`ayah-${ayah.number}`}
-                      className={`p-4 rounded-xl border transition-colors flex gap-4 items-start ${
-                        isCurrentPlaying
-                          ? "border-[var(--accent)] bg-[var(--accent)]/5"
-                          : "border-[var(--border)] bg-[var(--bg)]/50"
-                      }`}
-                    >
-                      <span className="text-xs font-mono px-2 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)] text-[var(--accent)] font-bold shrink-0 mt-1">
-                        {ayah.number}
-                      </span>
+                    <div key={verse.anchor}>
+                      <VerseRow
+                        verse={verse}
+                        index={index}
+                        playing={playingAyahIndex === index && !paused}
+                        saved={saved}
+                        showTransliteration={
+                          readingOptions.showTransliteration &&
+                          Boolean(verse.transliteration)
+                        }
+                        onPlay={togglePlayPause}
+                        onToggleBookmark={toggleBookmark}
+                        onToggleHighlight={toggleHighlight}
+                        onAddNote={openNoteEditor}
+                        onShare={shareAyah}
+                      />
 
-                      <div className="flex-1 space-y-2">
-                        <p
-                          className="arabic text-xl sm:text-2xl text-[var(--text-primary)] text-right leading-loose"
-                          lang="ar"
-                        >
-                          {ayah.text}
-                        </p>
-                        <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-                          {ayah.translation}
-                        </p>
-                      </div>
-
-                      <button
-                        onClick={() => togglePlayPause(ayah.index)}
-                        className={`btn text-xs py-1.5 px-2.5 shrink-0 ${
-                          isCurrentPlaying ? "btn-primary" : "btn-secondary"
-                        }`}
-                        title={isCurrentPlaying ? "Pause Ayah" : "Play Ayah"}
-                      >
-                        {isCurrentPlaying ? (
-                          <Pause size={13} />
-                        ) : (
-                          <Play size={13} />
-                        )}
-                      </button>
+                      {editingNote === noteKey ? (
+                        <div className="verse-row__note-edit">
+                          <label className="field">
+                            <span className="field__label">
+                              Private note for {verse.reference}
+                            </span>
+                            <textarea
+                              className="textarea"
+                              value={noteDraft}
+                              onChange={(event) => setNoteDraft(event.target.value)}
+                              rows={3}
+                              autoFocus
+                            />
+                          </label>
+                          <div className="cluster verse-row__note-actions">
+                            <button
+                              type="button"
+                              className="btn btn--primary btn--sm"
+                              onClick={() => saveNote(verse)}
+                            >
+                              Save note
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn--quiet btn--sm"
+                              onClick={() => setEditingNote(null)}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   );
-                })
-              )}
-            </div>
+                })}
+              </div>
+            ) : null}
+
+            {!sectionLoading && activeSurah && verses.length === 0 ? (
+              <EmptyState
+                icon={Bookmark}
+                title="No verses loaded"
+                description="This section could not be loaded from AlQuran Cloud. Try another chapter, or check your connection."
+              />
+            ) : null}
           </div>
         </div>
-      )}
+      </div>
+
+      <ReadingOptionsSheet
+        open={optionsOpen}
+        onClose={() => setOptionsOpen(false)}
+        options={readingOptions}
+        onChange={setOptions}
+        appearance={appearance}
+        onAppearanceChange={setAppearance}
+        reciters={RECITERS}
+      />
+
+      <Sheet
+        open={navigatorOpen}
+        onClose={() => setNavigatorOpen(false)}
+        title="Chapters"
+        variant="drawer"
+      >
+        <ChapterNavigator
+          surahs={surahs}
+          loading={loading}
+          activeSurahId={activeSurah?.id}
+          search={search}
+          onSearchChange={setSearch}
+          onSelectSurah={(surah) => {
+            setNavigatorOpen(false);
+            openSurahReader(surah);
+          }}
+          onSelectSection={(kind, number) => {
+            setNavigatorOpen(false);
+            openReadingSection(kind, number);
+          }}
+        />
+      </Sheet>
     </div>
   );
 }

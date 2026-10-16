@@ -8,34 +8,97 @@ const QURAN_BASE = "https://api.alquran.cloud/v1";
 const HADITH_BASE = "https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1";
 const HADITH_CACHE_TTL = 1000 * 60 * 10;
 const hadithCache = new Map();
+const OFFLINE_DB = "noorhub-offline-content";
+
+/**
+ * Resolve to `fallback` if IndexedDB does not answer in time. A blocked or
+ * disabled store is an enhancement, so it must never stall a response.
+ */
+function withTimeout(promise, fallback = null, ms = 1500) {
+  return Promise.race([
+    promise,
+    new Promise((resolve) => {
+      window.setTimeout(() => resolve(fallback), ms);
+    }),
+  ]);
+}
+
+function openOfflineDb() {
+  if (typeof indexedDB === "undefined") return Promise.resolve(null);
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(OFFLINE_DB, 1);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains("responses")) {
+        request.result.createObjectStore("responses", { keyPath: "url" });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function readOfflineResponse(url) {
+  try {
+    const database = await withTimeout(openOfflineDb(), null);
+    if (!database) return null;
+    return await withTimeout(
+      new Promise((resolve, reject) => {
+        const request = database.transaction("responses", "readonly").objectStore("responses").get(url);
+        request.onsuccess = () => { const data = request.result?.data ?? null; database.close(); resolve(data); };
+        request.onerror = () => { database.close(); reject(request.error); };
+      }),
+      null,
+    );
+  } catch {
+    return null;
+  }
+}
+
+async function writeOfflineResponse(url, data) {
+  try {
+    const database = await withTimeout(openOfflineDb(), null);
+    if (!database) return;
+    await withTimeout(
+      new Promise((resolve, reject) => {
+        const request = database.transaction("responses", "readwrite").objectStore("responses").put({ url, data, savedAt: Date.now() });
+        request.onsuccess = () => { database.close(); resolve(); };
+        request.onerror = () => { database.close(); reject(request.error); };
+      }),
+      null,
+    );
+  } catch {
+    // IndexedDB is an enhancement; an unavailable store must not block online reads.
+  }
+}
 
 async function requestJson(baseUrl, path, { signal } = {}) {
-  const response = await fetch(`${baseUrl}${path}`, {
-    signal,
-    headers: { Accept: "application/json" },
-    cache: "force-cache",
-  });
-
-  if (!response.ok) {
-    throw new Error(`API request failed with status ${response.status}`);
+  const url = `${baseUrl}${path}`;
+  try {
+    const response = await fetch(url, {
+      signal,
+      headers: { Accept: "application/json" },
+      cache: "force-cache",
+    });
+    if (!response.ok) {
+      if (response.status >= 500) {
+        const cached = await readOfflineResponse(url);
+        if (cached) return cached;
+      }
+      throw new Error(`API request failed with status ${response.status}`);
+    }
+    const data = await response.json();
+    await writeOfflineResponse(url, data);
+    return data;
+  } catch (error) {
+    if (signal?.aborted || error.name === "AbortError") throw error;
+    const cached = await readOfflineResponse(url);
+    if (cached) return cached;
+    throw error;
   }
-
-  return response.json();
 }
 
 async function requestHadithPayload(bookSlug, signal) {
-  const editionsUrl = `${HADITH_BASE}/editions/${bookSlug}.json`;
-  const response = await fetch(editionsUrl, {
-    signal,
-    headers: { Accept: "application/json" },
-    cache: "force-cache",
-  });
-
-  if (!response.ok) {
-    throw new Error(`API request failed with status ${response.status}`);
-  }
-
-  return response.json();
+  return requestJson(HADITH_BASE, `/editions/${bookSlug}.json`, { signal });
 }
 
 export const api = {
@@ -58,11 +121,20 @@ export const api = {
     }));
   },
 
-  async getSurahDetails(surahId, reciterId = "ar.alafasy", signal) {
+  async getSurahDetails(
+    surahId,
+    reciterId = "ar.alafasy",
+    signal,
+    { transliteration = false } = {},
+  ) {
     // Dynamically request the chosen reciter edition alongside text data streams
+    const editions = ["quran-uthmani", "en.sahih"];
+    if (transliteration) editions.push("en.transliteration");
+    editions.push(reciterId);
+
     const payload = await requestJson(
       QURAN_BASE,
-      `/surah/${surahId}/editions/quran-uthmani,en.sahih,${reciterId}`,
+      `/surah/${surahId}/editions/${editions.join(",")}`,
       { signal },
     );
 
@@ -72,7 +144,8 @@ export const api = {
       );
     }
 
-    const [arabicEdition, englishEdition, audioEdition] = payload.data ?? [];
+    const [arabicEdition, englishEdition, middleEdition, audioEdition] =
+      payload.data ?? [];
 
     if (!arabicEdition || !englishEdition || !audioEdition) {
       throw new Error(
@@ -83,8 +156,84 @@ export const api = {
     return {
       arabicVerses: arabicEdition.ayahs ?? [],
       englishVerses: englishEdition.ayahs ?? [],
+      transliterationVerses: middleEdition?.ayahs ?? [],
       audioVerses: audioEdition.ayahs ?? [], // Contains dynamic individual verse audio file URL nodes
     };
+  },
+
+  async getReadingSection(section, number, reciterId = "ar.alafasy", signal) {
+    const routes = { juz: "juz", hizbQuarter: "hizbQuarter", page: "page", ruku: "ruku", manzil: "manzil" };
+    const route = routes[section];
+    if (!route) throw new Error(`Unsupported Quran section: ${section}`);
+    const [arabicEdition, englishEdition, audioEdition] = await Promise.all([
+      requestJson(QURAN_BASE, `/${route}/${number}/quran-uthmani`, { signal }),
+      requestJson(QURAN_BASE, `/${route}/${number}/en.sahih`, { signal }),
+      requestJson(QURAN_BASE, `/${route}/${number}/${reciterId}`, { signal }),
+    ]);
+    const arabicVerses = arabicEdition?.data?.ayahs;
+    const englishVerses = englishEdition?.data?.ayahs;
+    const audioVerses = audioEdition?.data?.ayahs;
+    if (!Array.isArray(arabicVerses) || !Array.isArray(englishVerses) || !Array.isArray(audioVerses)) {
+      throw new Error(`Unexpected Quran section response for ${section} ${number}`);
+    }
+    return { arabicVerses, englishVerses, audioVerses };
+  },
+
+  /**
+   * Fetch a single ayah with its Arabic text, Sahih International translation,
+   * transliteration and audio URL. Used by the daily reflection panel so the
+   * verse shown on the dashboard is always the actual verse, never a summary.
+   */
+  async getAyah(reference, reciterId = "ar.alafasy", signal) {
+    const [arabicEdition, englishEdition, transliterationEdition, audioEdition] =
+      await Promise.all([
+        requestJson(QURAN_BASE, `/ayah/${reference}/quran-uthmani`, { signal }),
+        requestJson(QURAN_BASE, `/ayah/${reference}/en.sahih`, { signal }),
+        requestJson(QURAN_BASE, `/ayah/${reference}/en.transliteration`, { signal }),
+        requestJson(QURAN_BASE, `/ayah/${reference}/${reciterId}`, { signal }),
+      ]);
+
+    const arabic = arabicEdition?.data;
+    const english = englishEdition?.data;
+    const transliteration = transliterationEdition?.data;
+    const audio = audioEdition?.data;
+
+    if (!arabic?.text || !english?.text) {
+      throw new Error(`Unexpected ayah response for ${reference}`);
+    }
+
+    return {
+      reference: `${arabic.surah?.englishName || "Quran"} ${arabic.surah?.number}:${arabic.numberInSurah}`,
+      surahId: arabic.surah?.number,
+      surahName: arabic.surah?.englishName || "Quran",
+      surahArabic: arabic.surah?.name || "",
+      revelationType: arabic.surah?.revelationType || "",
+      ayah: arabic.numberInSurah,
+      text: arabic.text,
+      translation: english.text,
+      transliteration: transliteration?.text || "",
+      audio: audio?.audio || "",
+    };
+  },
+
+  async searchQuran(query, edition = "en.sahih", signal) {
+    const term = String(query || "").trim();
+    if (!term) return [];
+    const payload = await requestJson(
+      QURAN_BASE,
+      `/search/${encodeURIComponent(term)}/all/${encodeURIComponent(edition)}`,
+      { signal },
+    );
+    const matches = payload?.data?.matches;
+    if (!Array.isArray(matches)) throw new Error("Unexpected Quran search response");
+    return matches.map((match) => ({
+      text: match.text || "",
+      surahId: match.surah?.number,
+      surah: match.surah?.englishName || match.surah?.name || "Quran",
+      ayah: match.numberInSurah,
+      edition: match.edition?.englishName || edition,
+      reference: `${match.surah?.englishName || "Surah"} ${match.surah?.number}:${match.numberInSurah}`,
+    }));
   },
 
   // ---  Unified Hadith Operations Layer ---

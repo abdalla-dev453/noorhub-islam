@@ -1,59 +1,67 @@
-import { useNavigate } from "react-router-dom";
-import { LogoMark } from "./ui/Primitives";
+import { Link } from "react-router-dom";
+import { NAV_GROUPS } from "../data/defaults";
+import Wordmark from "./ui/Wordmark";
 
-const FOOTER_LINKS = [
-  { label: "Privacy", href: "#" },
-  { label: "Terms", href: "#" },
-  { label: "Contact", href: "#" },
-  { label: "Quran", to: "/quran" },
-  { label: "Hadith", to: "/hadith" },
+const LEGAL = [
+  { label: "About this project", to: "/about" },
+  { label: "Accessibility", to: "/about" },
+  { label: "Contact", to: "/about" },
 ];
 
 export default function Footer() {
-  const navigate = useNavigate();
-
   return (
-    <footer className="border-t border-[var(--border)] py-10 px-6">
-      <div className="max-w-5xl mx-auto flex flex-wrap items-center justify-between gap-6">
-        {/* Brand */}
-        <button
-          onClick={() => navigate("/")}
-          className="flex items-center gap-2 group focus:outline-none"
-          aria-label="NoorHub home"
-        >
-          <LogoMark size={22} />
-          <span className="font-semibold text-sm text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
-            NoorHub
-          </span>
-        </button>
+    <footer className="app-footer">
+      <div className="container">
+        <div className="app-footer__top">
+          <div>
+            <Wordmark label="NoorHub — home" />
+            <p className="app-footer__mission">
+              NoorHub is a quiet workspace for reading the Quran, keeping prayer
+              times, memorising, and learning — built for a steadier practice
+              rather than more screen time.
+            </p>
+          </div>
 
-        {/* Links */}
-        <nav className="flex flex-wrap gap-5" aria-label="Footer navigation">
-          {FOOTER_LINKS.map((link) =>
-            link.to ? (
-              <button
-                key={link.label}
-                onClick={() => navigate(link.to)}
-                className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
-              >
-                {link.label}
-              </button>
-            ) : (
-              <a
-                key={link.label}
-                href={link.href}
-                className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
-              >
-                {link.label}
-              </a>
-            ),
-          )}
-        </nav>
+          {NAV_GROUPS.map((group) => (
+            <nav key={group.title} aria-label={`${group.title} links`}>
+              <p className="app-footer__group-title">{group.title}</p>
+              {group.items.map((item) => (
+                <Link key={item.label} className="app-footer__link" to={item.to}>
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+          ))}
 
-        {/* Copyright */}
-        <p className="text-xs text-[var(--text-muted)]">
-          © 2026 NoorHub. Built with love for the Ummah.
-        </p>
+          <nav aria-label="Account and legal links">
+            <p className="app-footer__group-title">Account</p>
+            <Link className="app-footer__link" to="/settings">
+              Profile and privacy
+            </Link>
+            <Link className="app-footer__link" to="/login">
+              Sign in
+            </Link>
+            {LEGAL.map((item) => (
+              <Link key={item.label} className="app-footer__link" to={item.to}>
+                {item.label}
+              </Link>
+            ))}
+            <Link className="app-footer__link" to="/settings">
+              Export or delete data
+            </Link>
+          </nav>
+        </div>
+
+        <div className="app-footer__bottom">
+          <p>© {new Date().getFullYear()} NoorHub</p>
+          <p className="app-footer__sources">
+            Quran text: Uthmani edition · Translation: Sahih International · Text
+            and audio via AlQuran Cloud. Hadith text from the fawazahmed0
+            hadith-api editions; grading and narrator chains are not yet
+            included. Prayer times are calculated on your device and can differ
+            from your local mosque timetable.
+          </p>
+        </div>
       </div>
     </footer>
   );

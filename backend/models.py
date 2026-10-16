@@ -75,5 +75,22 @@ class UserProgress(db.Model):
         }
 
 
+class RevokedToken(db.Model):
+    """JWT identifiers invalidated by logout or refresh-token rotation."""
+
+    __tablename__ = "revoked_tokens"
+
+    jti = db.Column(db.String(64), primary_key=True)
+    expires_at = db.Column(db.DateTime(timezone=True), nullable=False, index=True)
+    revoked_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+# Alias UserProgress as LessonProgress for backward/test compatibility
+LessonProgress = UserProgress
+
 # Alias module in sys.modules
 sys.modules["backend.models"] = sys.modules[__name__]

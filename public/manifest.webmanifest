@@ -1,0 +1,12 @@
+{
+  "name": "NoorHub — Daily Islamic life",
+  "short_name": "NoorHub",
+  "description": "A calm, private space for worship, learning, and reflection.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07090e",
+  "theme_color": "#07090e",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

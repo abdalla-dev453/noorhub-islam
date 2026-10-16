@@ -1,0 +1,181 @@
+/* ==========================================================================
+   NoorHub design tokens
+   A single source of truth for colour, type, spacing, shape and state.
+   Light (parchment) is the default appearance. Sepia and dark reading
+   appearances are available for the reader and for anyone who prefers them.
+   ========================================================================== */
+
+:root {
+  /* ── Raw palette ─────────────────────────────────────────────────────── */
+  --parchment: #f7f5ef;
+  --parchment-raised: #faf9f5;
+  --surface: #ffffff;
+  --ink: #1c2a24;
+  --ink-secondary: #526059;
+  --ink-muted: #64706a; /* AA on parchment; #748078 is decorative only */
+  --ink-muted-soft: #748078;
+  --green: #1f5a45;
+  --green-deep: #133c30;
+  --green-ink: #143f31;
+  --gold: #b58a3a;
+  --gold-text: #8a6a25; /* AA on parchment */
+  --sage: #e8efe9;
+  --sand: #f1ece1;
+  --line: #e3e5dd;
+  --line-strong: #d2d6c9;
+  --danger: #8c2f2f;
+  --danger-soft: #f6e9e6;
+  --reader-dark-bg: #15221d;
+  --reader-dark-surface: #1d2d26;
+  --reader-dark-text: #f5f2e9;
+  --reader-dark-muted: #9fb0a6;
+  --reader-dark-line: #2c3f36;
+  --reader-dark-gold: #c4a45a;
+
+  /* ── Semantic colour ─────────────────────────────────────────────────── */
+  --bg: var(--parchment);
+  --bg-raised: var(--parchment-raised);
+  --surface-1: var(--surface);
+  --surface-2: #fbfaf6;
+  --surface-3: var(--sand);
+  --surface-quiet: var(--sage);
+  --text-1: var(--ink);
+  --text-2: var(--ink-secondary);
+  --text-3: var(--ink-muted);
+  --text-4: var(--ink-muted-soft);
+  --border: var(--line);
+  --border-strong: var(--line-strong);
+  --accent: var(--green);
+  --accent-strong: var(--green-deep);
+  --accent-soft: var(--sage);
+  --accent-contrast: #ffffff;
+  --gold-accent: var(--gold);
+  --gold-accent-text: var(--gold-text);
+  --focus-ring: #1f5a45;
+  --overlay: rgba(19, 28, 24, 0.44);
+  --shadow-color: 24 34 29;
+
+  /* ── Typography ──────────────────────────────────────────────────────── */
+  --font-sans: "Inter", "Manrope", system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", sans-serif;
+  --font-serif: "Fraunces", "Source Serif 4", "Lora", Georgia, "Times New Roman",
+    serif;
+  --font-arabic: "Amiri Quran", "Amiri", "Noto Naskh Arabic", "Scheherazade New",
+    serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Roboto Mono", Menlo,
+    monospace;
+
+  --text-xs: 0.75rem; /* 12px — utility labels only */
+  --text-sm: 0.875rem; /* 14px — secondary UI text */
+  --text-base: 1rem; /* 16px — body minimum */
+  --text-md: 1.0625rem; /* 17px — comfortable reading */
+  --text-lg: 1.25rem; /* 20px */
+  --text-xl: 1.5rem; /* 24px */
+  --text-2xl: 1.875rem; /* 30px */
+  --text-3xl: 2.25rem; /* 36px */
+  --text-4xl: 2.75rem; /* 44px */
+
+  --leading-tight: 1.18;
+  --leading-snug: 1.35;
+  --leading-normal: 1.6;
+  --leading-relaxed: 1.72;
+  --leading-quran: 2.05;
+
+  --tracking-tight: -0.011em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.06em;
+
+  /* ── Spacing — 8px system ────────────────────────────────────────────── */
+  --space-1: 0.25rem; /* 4 */
+  --space-2: 0.5rem; /* 8 */
+  --space-3: 0.75rem; /* 12 */
+  --space-4: 1rem; /* 16 */
+  --space-5: 1.25rem; /* 20 */
+  --space-6: 1.5rem; /* 24 */
+  --space-7: 1.75rem; /* 28 */
+  --space-8: 2rem; /* 32 */
+  --space-10: 2.5rem; /* 40 */
+  --space-12: 3rem; /* 48 */
+  --space-16: 4rem; /* 64 */
+  --space-20: 5rem; /* 80 */
+  --space-24: 6rem; /* 96 */
+
+  /* ── Shape & elevation ───────────────────────────────────────────────── */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+  --border-width: 1px;
+
+  --shadow-1: 0 1px 2px rgb(var(--shadow-color) / 0.05);
+  --shadow-2: 0 8px 24px -14px rgb(var(--shadow-color) / 0.16);
+  --shadow-3: 0 24px 48px -28px rgb(var(--shadow-color) / 0.24);
+
+  /* ── Layout ──────────────────────────────────────────────────────────── */
+  --shell-max: 1240px;
+  --shell-pad: var(--space-5);
+  --header-height: 4rem;
+  --reader-max: 46rem;
+  --measure: 34rem;
+
+  /* ── Motion ──────────────────────────────────────────────────────────── */
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --ease: cubic-bezier(0.32, 0.72, 0.35, 1);
+}
+
+/* ── Sepia reading appearance (manuscript warm tint) ─────────────────────── */
+:root[data-appearance="sepia"] {
+  --bg: #f4ecdd;
+  --bg-raised: #f7f1e4;
+  --surface-1: #fbf6ec;
+  --surface-2: #f6efe1;
+  --surface-3: #efe5d1;
+  --surface-quiet: #eee6d4;
+  --text-1: #2a2419;
+  --text-2: #574f3d;
+  --text-3: #6b6250;
+  --text-4: #83796a;
+  --border: #e0d6c1;
+  --border-strong: #cfc2a7;
+  --accent: #1f5a45;
+  --accent-strong: #143f31;
+  --accent-soft: #e6ead9;
+  --gold-accent-text: #7d5f22;
+  --focus-ring: #1f5a45;
+  --overlay: rgba(42, 36, 25, 0.42);
+  --shadow-color: 46 39 26;
+  color-scheme: light;
+}
+
+/* ── Dark reading appearance (reader palette; never pure black) ─────────── */
+:root[data-appearance="dark"] {
+  --bg: var(--reader-dark-bg);
+  --bg-raised: var(--reader-dark-surface);
+  --surface-1: var(--reader-dark-surface);
+  --surface-2: #22332c;
+  --surface-3: #26382f;
+  --surface-quiet: #22332c;
+  --text-1: var(--reader-dark-text);
+  --text-2: #c3cdc6;
+  --text-3: var(--reader-dark-muted);
+  --text-4: #87998f;
+  --border: var(--reader-dark-line);
+  --border-strong: #3a5048;
+  --accent: #7fb79f;
+  --accent-strong: #a3cdb8;
+  --accent-soft: #22332c;
+  --accent-contrast: #10221b;
+  --gold-accent: var(--reader-dark-gold);
+  --gold-accent-text: var(--reader-dark-gold);
+  --focus-ring: #a3cdb8;
+  --overlay: rgba(6, 12, 9, 0.62);
+  --shadow-color: 0 0 0;
+  color-scheme: dark;
+}
+
+/* Arabic type stays at a readable weight in the dark appearance */
+:root[data-appearance="dark"] .quran-text,
+:root[data-appearance="dark"] .arabic-text {
+  color: var(--text-1);
+}
