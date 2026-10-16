@@ -29,8 +29,13 @@ class Config:
     DEBUG = os.getenv("FLASK_DEBUG", "false").lower() == "true"
 
     # ── Database ─────────────────────────────────────────────────────────────
-    # Use sqlite:///noorhub_dev.db by default
-    SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", "sqlite:///noorhub_dev.db")
+    # Use sqlite:///noorhub_dev.db by default.
+    # On Render and other platforms, PostgreSQL URLs may start with postgres://
+    # or DATABASE_URL might be empty string. We clean and format it for SQLAlchemy.
+    _raw_db_url = os.getenv("DATABASE_URL", "").strip()
+    if _raw_db_url.startswith("postgres://"):
+        _raw_db_url = _raw_db_url.replace("postgres://", "postgresql://", 1)
+    SQLALCHEMY_DATABASE_URI = _raw_db_url if _raw_db_url else "sqlite:///noorhub_dev.db"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # ── JWT ──────────────────────────────────────────────────────────────────
