@@ -11,9 +11,11 @@ const LEGAL = [
 export default function Footer() {
   return (
     <footer className="app-footer">
-      <div className="container">
+      <div className="app-footer__ornament" aria-hidden="true" />
+      <div className="container app-footer__container">
         <div className="app-footer__top">
-          <div>
+          <div className="app-footer__brand">
+            <p className="app-footer__eyebrow">A quieter rhythm for everyday life</p>
             <Wordmark label="NoorHub — home" />
             <p className="app-footer__mission">
               NoorHub is a quiet workspace for reading the Quran, keeping prayer
