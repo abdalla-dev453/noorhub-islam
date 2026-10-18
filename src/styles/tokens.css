@@ -166,8 +166,12 @@
   --accent-strong: #a3cdb8;
   --accent-soft: #22332c;
   --accent-contrast: #10221b;
+  --green-ink: #b9ddc9;
+  --danger: #f1a6a0;
+  --danger-soft: #482b2a;
   --gold-accent: var(--reader-dark-gold);
-  --gold-accent-text: var(--reader-dark-gold);
+  --gold-accent-text: #e1c47f;
+  --text-4: #a6b4ac;
   --focus-ring: #a3cdb8;
   --overlay: rgba(6, 12, 9, 0.62);
   --shadow-color: 0 0 0;

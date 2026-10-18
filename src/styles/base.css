@@ -37,9 +37,12 @@ html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   scroll-behavior: smooth;
+  overflow-x: clip;
 }
 
 body {
+  width: 100%;
+  max-width: 100%;
   min-height: 100vh;
   background-color: var(--bg);
   color: var(--text-1);
@@ -50,7 +53,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  overflow-x: hidden;
+  overflow-x: clip;
   transition: background-color var(--duration-base) var(--ease),
     color var(--duration-base) var(--ease);
 }
@@ -66,6 +69,8 @@ button,
 input,
 select,
 textarea {
+  min-width: 0;
+  max-width: 100%;
   font: inherit;
   color: inherit;
   letter-spacing: inherit;
@@ -177,6 +182,24 @@ p {
 .meta {
   font-size: var(--text-sm);
   color: var(--text-3);
+}
+
+/* Long labels, IDs, and translated text should wrap inside their layout. */
+.page,
+.page > *,
+.grid > *,
+.cluster > *,
+.stack > * {
+  min-width: 0;
+}
+
+p,
+h1,
+h2,
+h3,
+h4,
+.meta {
+  overflow-wrap: anywhere;
 }
 
 .numeric {
