@@ -1871,6 +1871,154 @@
   border: 0;
 }
 
+.youtube-player-target,
+.youtube-player-target iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.youtube-player-fallback {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--space-4);
+  height: 100%;
+  min-height: 12rem;
+  padding: var(--space-5);
+  text-align: center;
+  color: var(--text-2);
+  background: var(--surface-3);
+}
+
+.youtube-player-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  color: var(--text-3);
+  background: var(--surface-3);
+}
+
+.lesson-watch-link {
+  display: inline-flex;
+  margin-top: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.lesson-refresh-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-block: calc(var(--space-4) * -1) var(--space-4);
+}
+
+.lesson-discovery {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+  padding: var(--space-5);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+
+.lesson-discovery__field {
+  min-width: 0;
+}
+
+.lesson-discovery__button {
+  align-self: end;
+  min-height: 2.75rem;
+}
+
+.lesson-discovery__topics,
+.lesson-discovery > .meta {
+  grid-column: 1 / -1;
+}
+
+.lesson-search-error {
+  grid-column: 1 / -1;
+  color: var(--danger, #a43b2a);
+  font-size: var(--text-sm);
+}
+
+.lesson-topic-results {
+  display: grid;
+  gap: var(--space-5);
+  margin-bottom: var(--space-10);
+}
+
+@media (max-width: 560px) {
+  .lesson-discovery {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lesson-discovery__button {
+    justify-self: start;
+  }
+}
+
+.is-spinning {
+  animation: lesson-refresh-spin 0.9s linear infinite;
+}
+
+@keyframes lesson-refresh-spin {
+  to { transform: rotate(360deg); }
+}
+
+.lecture-card__thumb-placeholder {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  color: var(--text-3);
+  background: var(--surface-3);
+}
+
+.lesson-player > *,
+.lesson-player .card,
+.lesson-head,
+.hadith-card,
+.article-detail {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.hadith-language {
+  max-width: 22rem;
+  margin-bottom: var(--space-4);
+}
+
+.kids-story-toggle {
+  margin-top: var(--space-3);
+}
+
+.kids-story {
+  max-width: 65ch;
+  margin-top: var(--space-3);
+  line-height: var(--leading-relaxed);
+  color: var(--text-2);
+}
+
+.article-detail .article-body {
+  max-width: 68ch;
+  margin-inline: auto;
+}
+
+.article-detail .article-body p {
+  line-height: 1.85;
+}
+
 /* Learn page */
 .learn-toolbar {
   display: flex;

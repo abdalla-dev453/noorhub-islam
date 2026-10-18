@@ -59,6 +59,7 @@ export default function App() {
                  <Route path="/kids" element={<Kids />} />
                  <Route path="/community" element={<Community />} />
                  <Route path="/articles" element={<Articles />} />
+                 <Route path="/articles/:articleId" element={<Articles />} />
                </Routes>
             </Suspense>
           </AppShell>

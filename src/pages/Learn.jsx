@@ -6,16 +6,18 @@ import {
   Circle,
   Clock,
   GraduationCap,
+  RefreshCw,
   Search,
   User,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import TrackCard from "../components/ui/TrackCard";
 import { useAuth } from "../context/AuthContext";
 import { useProgress } from "../context/ProgressContext";
 import { api } from "../utils/api";
 import { getVideoSourceConfig } from "../utils/video";
+import YouTubePlayer from "../components/YouTubePlayer";
 import { Badge, Tag } from "../components/ui/Badge";
 import ProgressBar from "../components/ui/ProgressBar";
 import Notice from "../components/ui/Notice";
@@ -26,19 +28,18 @@ import SectionHeader from "../components/ui/SectionHeader";
 const FILTER_TAGS = [
   "All Pathways",
   "Theology",
-  "Jurisprudence",
   "History",
   "Recitation",
 ];
 
 const SCHOLARS = [
   "All Scholars",
-  "Sheikh Omar Suleiman",
+  "Yaqeen Institute",
   "Dr. Yasir Qadhi",
-  "Ustadh Nouman Ali Khan",
-  "Sheikh Belal Assaad",
-  "Dr. Shadee Elmasry",
+  "Mufti Menk",
+  "FreeQuranEducation",
 ];
+const TOPIC_SUGGESTIONS = ["Quran tafsir", "Seerah", "Salah and fiqh", "Hadith", "Quran recitation", "Arabic learning"];
 
 export default function Learn() {
   const [searchParams] = useSearchParams();
@@ -53,31 +54,87 @@ export default function Learn() {
   );
 
   const [liveLessons, setLiveLessons] = useState([]);
-  const [loadingFeed, setLoadingFeed] = useState(false);
+  const [loadingFeed, setLoadingFeed] = useState(true);
+  const [refreshingFeed, setRefreshingFeed] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [feedSourceCount, setFeedSourceCount] = useState(0);
+  const [feedIsFallback, setFeedIsFallback] = useState(false);
+  const [topicResults, setTopicResults] = useState([]);
+  const [topicSearching, setTopicSearching] = useState(false);
+  const [topicSearchError, setTopicSearchError] = useState("");
+  const [searchedTopic, setSearchedTopic] = useState("");
+  const [topicPageToken, setTopicPageToken] = useState("");
+  const [loadingMoreTopicResults, setLoadingMoreTopicResults] = useState(false);
+  const [topicRecentFallback, setTopicRecentFallback] = useState(false);
 
   const [activeLesson, setActiveLesson] = useState(null);
   const [playerTab, setPlayerTab] = useState("overview");
   const [savedNotice, setSavedNotice] = useState(false);
 
-  useEffect(() => {
-    let isMounted = true;
-    setLoadingFeed(true); // eslint-disable-line react-hooks/set-state-in-effect -- reset pending state for a new filter
-    api
-      .getRecentAndOngoingLessons({ category: activeCategory, speaker: selectedScholar })
-      .then((data) => {
-        if (isMounted) setLiveLessons(data);
-      })
-      .catch(() => {
-        if (isMounted) setLiveLessons([]);
-      })
-      .finally(() => {
-        if (isMounted) setLoadingFeed(false);
-      });
+  const refreshLessons = useCallback(async ({ silent = false, signal } = {}) => {
+    if (!silent) setRefreshingFeed(true);
+    try {
+      const feed = await api.getLatestLessons({ signal });
+      setLiveLessons(feed.items);
+      setFeedSourceCount(feed.sourceCount || 0);
+      setFeedIsFallback(Boolean(feed.isFallback));
+      setLastUpdated(feed.updatedAt ? new Date(feed.updatedAt) : null);
+    } catch (error) {
+      if (error.name !== "AbortError") console.error("Could not refresh lesson videos:", error);
+    } finally {
+      setLoadingFeed(false);
+      setRefreshingFeed(false);
+    }
+  }, []);
 
+  const handleTopicSearch = async (eventOrTerm) => {
+    eventOrTerm?.preventDefault?.();
+    const term = typeof eventOrTerm === "string" ? eventOrTerm.trim() : searchQuery.trim();
+    if (term.length < 2) {
+      setTopicSearchError("Enter at least two characters to search for lessons.");
+      return;
+    }
+    setTopicSearching(true);
+    setTopicSearchError("");
+    setTopicPageToken("");
+    setSearchedTopic(term);
+    setActiveTab("live-feed");
+    try {
+      const results = await api.searchLessons(term);
+      setTopicResults(results.items || []);
+      setTopicPageToken(results.nextPageToken || "");
+      setTopicRecentFallback(Boolean(results.isRecentFallback));
+    } catch (error) {
+      setTopicResults([]);
+      setTopicSearchError(error.message || "Could not search videos right now.");
+    } finally {
+      setTopicSearching(false);
+    }
+  };
+
+  const loadMoreTopicResults = async () => {
+    if (!topicPageToken || loadingMoreTopicResults) return;
+    setLoadingMoreTopicResults(true);
+    try {
+      const results = await api.searchLessons(searchedTopic, { pageToken: topicPageToken });
+      setTopicResults((current) => [...current, ...(results.items || [])]);
+      setTopicPageToken(results.nextPageToken || "");
+    } catch (error) {
+      setTopicSearchError(error.message || "Could not load more videos.");
+    } finally {
+      setLoadingMoreTopicResults(false);
+    }
+  };
+
+  useEffect(() => {
+    const controller = new AbortController();
+    refreshLessons({ signal: controller.signal });
+    const timer = window.setInterval(() => refreshLessons({ silent: true }), 15 * 60 * 1000);
     return () => {
-      isMounted = false;
+      controller.abort();
+      window.clearInterval(timer);
     };
-  }, [activeCategory, selectedScholar]);
+  }, [refreshLessons]);
 
   const enrolledCount = tracks.filter((track) => track.isEnrolled).length;
   const completedLessons = tracks.reduce(
@@ -238,13 +295,12 @@ export default function Learn() {
 
               <div className="lesson-player__frame">
                 {videoConfig?.type === "youtube" ? (
-                  <iframe
-                    key={title}
-                    src={videoConfig.embedUrl}
-                    title={`Lecture: ${title}`}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
+                  <YouTubePlayer key={videoConfig.videoId} videoId={videoConfig.videoId} title={`Lecture: ${title}`} watchUrl={videoConfig.watchUrl} />
+                ) : videoConfig?.type === "youtube-search" ? (
+                  <div className="youtube-player-fallback">
+                    <p>Find current videos for this lesson on YouTube.</p>
+                    <a className="btn btn--primary" href={videoConfig.src} target="_blank" rel="noreferrer">Browse YouTube results</a>
+                  </div>
                 ) : (
                   <video key={title} controls preload="metadata" playsInline>
                     <source src={videoConfig?.src} type="video/mp4" />
@@ -252,6 +308,9 @@ export default function Learn() {
                   </video>
                 )}
               </div>
+              {videoConfig?.type === "youtube" ? (
+                <a className="lesson-watch-link" href={videoConfig.watchUrl} target="_blank" rel="noreferrer">Open this lesson on YouTube ↗</a>
+              ) : null}
 
               {savedNotice ? (
                 <p className="lesson-saved" role="status">
@@ -544,15 +603,80 @@ export default function Learn() {
           <section aria-labelledby="lectures-heading">
             <SectionHeader
               title="Selected lectures"
-              description="Individual lectures from the institutions credited on each entry. Watch here or open the original on the host platform."
+              description="Selected lectures from the credited channels. Watch verified videos here, or open YouTube to find current videos for a lesson."
             />
+            <div className="lesson-refresh-row">
+              <p className="meta" role="status">
+                {feedIsFallback
+                  ? "Live video feed is unavailable; showing saved lessons and YouTube searches."
+                  : lastUpdated
+                    ? `Updated ${lastUpdated.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}${feedSourceCount ? ` · ${feedSourceCount} channels` : ""}`
+                    : "Videos refresh automatically every 15 minutes."}
+              </p>
+              <button type="button" className="btn btn--secondary btn--sm" onClick={() => refreshLessons()} disabled={refreshingFeed}>
+                <RefreshCw size={14} aria-hidden="true" className={refreshingFeed ? "is-spinning" : ""} />
+                {refreshingFeed ? "Refreshing…" : "Refresh videos"}
+              </button>
+            </div>
+            <form className="lesson-discovery" onSubmit={handleTopicSearch}>
+              <label className="field lesson-discovery__field">
+                <span className="field__label">Browse lessons by interest</span>
+                <input
+                  type="search"
+                  className="input"
+                  placeholder="Try tafsir, patience, Ramadan, Arabic…"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                />
+              </label>
+              <button className="btn btn--primary lesson-discovery__button" type="submit" disabled={topicSearching}>
+                {topicSearching ? "Searching…" : "Search lessons"}
+              </button>
+              <div className="cluster lesson-discovery__topics" aria-label="Popular lesson topics">
+                {TOPIC_SUGGESTIONS.map((topic) => (
+                  <button key={topic} className="tag" type="button" disabled={topicSearching} onClick={() => { setSearchQuery(topic); handleTopicSearch(topic); }}>{topic}</button>
+                ))}
+              </div>
+              <p className="meta">Search results appear here and play in the NoorHub player. {topicRecentFallback ? "Showing matching recent uploads; configure the YouTube API key for broader search." : ""}</p>
+              {topicSearchError ? <p className="lesson-search-error" role="alert">{topicSearchError}</p> : null}
+            </form>
+
+            {searchedTopic && !topicSearchError && !topicSearching ? (
+              <section className="lesson-topic-results" aria-live="polite" aria-labelledby="topic-results-heading">
+                <h2 className="section-header__title" id="topic-results-heading">{topicResults.length} results for “{searchedTopic}”</h2>
+                {topicResults.length ? (
+                  <>
+                    <div className="grid grid--3">
+                    {topicResults.map((item) => (
+                      <article key={item.id} className="card lecture-card">
+                        <div className="lecture-card__thumb">
+                          {item.thumbnail ? <img src={item.thumbnail} alt="" loading="lazy" /> : null}
+                          <span className="lecture-card__duration">{item.date}</span>
+                        </div>
+                        <Badge tone="accent">YouTube</Badge>
+                        <h3 className="card__title lecture-card__title">{item.title}</h3>
+                        <p className="meta">{item.institution}</p>
+                        <p className="lecture-card__desc">{item.description}</p>
+                        <div className="card__footer">
+                          <button type="button" className="btn btn--secondary btn--sm" onClick={() => setActiveLesson({ type: "live", lesson: item })}>
+                            Play on NoorHub <ArrowRight size={15} aria-hidden="true" />
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+                    </div>
+                    {topicPageToken ? <button type="button" className="btn btn--secondary" onClick={loadMoreTopicResults} disabled={loadingMoreTopicResults}>{loadingMoreTopicResults ? "Loading…" : "Load more results"}</button> : null}
+                  </>
+                ) : <p className="meta">No embeddable videos matched that topic. Try a broader search.</p>}
+              </section>
+            ) : null}
             <h2 className="sr-only" id="lectures-heading">
               Selected lectures
             </h2>
 
             {loadingFeed ? (
               <PageSkeleton label="Loading lectures" />
-            ) : filteredLiveLessons.length === 0 ? (
+            ) : filteredLiveLessons.length === 0 && !(searchedTopic && searchedTopic === searchQuery.trim() && topicResults.length > 0) ? (
               <EmptyState
                 icon={Search}
                 title="No lectures match that search"
@@ -564,12 +688,12 @@ export default function Learn() {
                   setSearchQuery("");
                 }}
               />
-            ) : (
+            ) : filteredLiveLessons.length > 0 ? (
               <div className="grid grid--3">
                 {filteredLiveLessons.map((item) => (
                   <article key={item.id} className="card lecture-card">
                     <div className="lecture-card__thumb">
-                      <img src={item.thumbnail} alt="" loading="lazy" />
+                      {item.thumbnail ? <img src={item.thumbnail} alt="" loading="lazy" /> : <div className="lecture-card__thumb-placeholder" aria-hidden="true"><BookOpen size={24} /></div>}
                       <span className="lecture-card__duration">{item.duration}</span>
                     </div>
 
@@ -598,7 +722,7 @@ export default function Learn() {
                   </article>
                 ))}
               </div>
-            )}
+            ) : null}
           </section>
         )}
 

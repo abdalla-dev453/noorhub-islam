@@ -39,6 +39,8 @@ export default function Hadith() {
   const [error, setError] = useState(false);
   const [saved, setSaved] = usePersistentState(SAVED_KEY, []);
   const [copiedId, setCopiedId] = useState(null);
+  const [language, setLanguage] = useState("eng");
+  const [languages, setLanguages] = useState([{ code: "eng", name: "English" }]);
 
   const abortControllerRef = useRef(null);
   const normalizedSearch = useMemo(() => search.trim().toLowerCase(), [search]);
@@ -59,16 +61,18 @@ export default function Hadith() {
     setError(false);
     setVisibleCount(BATCH_SIZE);
     setSearch("");
+    setLanguage("eng");
 
     abortControllerRef.current?.abort();
     abortControllerRef.current = new AbortController();
 
     try {
-      const data = await api.getHadithCollection(
-        book.slug,
-        abortControllerRef.current.signal,
-      );
+      const [data, availableLanguages] = await Promise.all([
+        api.getHadithCollection(book.slug, abortControllerRef.current.signal, "eng"),
+        api.getHadithTranslations(book.slug, abortControllerRef.current.signal),
+      ]);
       setAllNarrations(data);
+      setLanguages(availableLanguages);
     } catch (err) {
       if (err.name !== "AbortError") {
         setError(true);
@@ -78,6 +82,22 @@ export default function Hadith() {
       setLoading(false);
     }
   }, []);
+
+  const changeLanguage = async (code) => {
+    if (!activeBook || code === language) return;
+    setLanguage(code);
+    setLoading(true);
+    setError(false);
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+    try {
+      setAllNarrations(await api.getHadithCollection(activeBook.slug, abortControllerRef.current.signal, code));
+    } catch (err) {
+      if (err.name !== "AbortError") setError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleBack = useCallback(() => {
     abortControllerRef.current?.abort();
@@ -145,7 +165,7 @@ export default function Hadith() {
           <span className="page-head__eyebrow">Library</span>
           <h1 className="page-head__title">Hadith collections</h1>
           <div className="page-head__meta">
-            <span>English narration text</span>
+            <span>Translations in available languages</span>
             <span aria-hidden="true">·</span>
             <span>Grading and narrator chains not yet included</span>
           </div>
@@ -178,8 +198,8 @@ export default function Hadith() {
                     from this collection
                   </p>
                   <p className="collection-card__desc">
-                    English text as published in the fawazahmed0 hadith-api
-                    edition. Open the collection to search and save narrations.
+                    Choose an available language after opening a collection.
+                    Open it to search and save narrations.
                   </p>
                   <span className="section-header__action">
                     Browse collection
@@ -222,6 +242,15 @@ export default function Hadith() {
                 {activeBook.title}
               </h2>
             </div>
+
+            {!loading && !error ? (
+              <label className="field hadith-language">
+                <span className="field__label">Translation language</span>
+                <select className="input" value={language} onChange={(event) => changeLanguage(event.target.value)}>
+                  {languages.map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}
+                </select>
+              </label>
+            ) : null}
 
             {!loading && !error ? (
               <div className="search-field hadith-search">
@@ -300,7 +329,7 @@ export default function Hadith() {
                         <p className="hadith-card__text">{item.text}</p>
 
                         <p className="hadith-card__foot meta">
-                          English text · verify against a printed edition before
+                          {languages.find((item) => item.code === language)?.name || "Selected language"} text · verify against a printed edition before
                           quoting
                         </p>
                       </article>
