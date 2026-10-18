@@ -16,6 +16,7 @@ export default function ReaderToolbar({
   kind,
   verseCount,
   playing,
+  fullPlayback,
   loading,
   onPlayAll,
   onPause,
@@ -58,8 +59,9 @@ export default function ReaderToolbar({
           ) : (
             <Play size={15} aria-hidden="true" />
           )}
-          {playing ? "Pause" : "Listen"}
+          {playing ? "Pause full listening" : "Listen to full section"}
         </button>
+        {playing && fullPlayback ? <span className="meta" role="status">Playing all {kind === "surah" ? "surah" : "section"} ayahs</span> : null}
 
         <IconButton
           icon={ListMusic}

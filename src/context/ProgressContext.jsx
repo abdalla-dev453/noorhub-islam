@@ -303,7 +303,17 @@ const INITIAL_COURSES = [
     ],
     isEnrolled: false,
   },
-];
+].map((course) => ({
+  ...course,
+  syllabus: course.syllabus.map((lesson) => ({
+    ...lesson,
+    // Most earlier catalogue URLs were unverified placeholder IDs. Point each
+    // lesson at a live search for its real title instead of embedding a dead ID.
+    videoUrl: course.id === 3 && lesson.id === "3-1"
+      ? "https://www.youtube.com/watch?v=4F5qzMI2IKs"
+      : `https://www.youtube.com/results?search_query=${encodeURIComponent(`${lesson.title} ${lesson.instructor || course.instructor}`)}`,
+  })),
+}));
 
 function getInitialGuestProgress() {
   if (typeof window === "undefined") return INITIAL_COURSES;

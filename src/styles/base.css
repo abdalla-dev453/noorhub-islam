@@ -8,6 +8,27 @@
   box-sizing: border-box;
 }
 
+/* Grid and flex children otherwise keep their min-content width and can
+   collide with adjacent content on compact screens. */
+main,
+section,
+article,
+.container,
+.card,
+.cluster,
+.stack,
+.grid {
+  min-width: 0;
+}
+
+iframe,
+video,
+img,
+table,
+pre {
+  max-width: 100%;
+}
+
 * {
   margin: 0;
 }

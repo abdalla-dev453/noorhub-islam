@@ -10,24 +10,28 @@ const STORIES = [
     age: "3-6 yrs",
     moral: "Generosity",
     summary: "A poor family shares their last dates with a guest. The Prophet's kindness turns a small gift into lasting barakah.",
+    story: "One day, a family welcomed a guest even though they had very little food. They shared the dates they had, making sure the guest felt cared for. Their generous choice reminds us that kindness is measured by the heart, not by how much we own.",
   },
   {
     title: "The Boy and the Dates ( ﷺ )",
     age: "4-7 yrs",
     moral: "Kindness",
     summary: "The Prophet teaches that smiling at a brother is charity, even with half a date.",
+    story: "A child wanted to do something good but thought it had to be big. The Prophet ﷺ taught that even a smile can be charity. A kind greeting, sharing, and helping at home are all small ways children can bring goodness to others.",
   },
   {
     title: "The Spider and the Cave ( ﷺ )",
     age: "5-8 yrs",
     moral: "Trust in Allah",
     summary: "Young Hassan learns that the smallest creature can be a great helper when you have Tawakkul.",
+    story: "During the Hijrah, the Prophet ﷺ and Abu Bakr took shelter in a cave. Allah protected them. The story teaches children to trust Allah while also making careful plans and doing their best.",
   },
   {
     title: "The Generous Farmer ( ﷺ )",
     age: "6-9 yrs",
     moral: "Sadaqah",
     summary: "A farmer plants extra date palms so the poor always have fruit. He teaches that planting is a form of charity.",
+    story: "A farmer planted trees and cared for them patiently. People and animals later benefited from their fruit and shade. Caring for creation and giving others something useful can become lasting charity.",
   },
 ];
 
@@ -56,6 +60,7 @@ export default function Kids() {
   const [tab, setTab] = useState("learn");
   const [selectedLetter, setSelectedLetter] = useState(LETTERS[0]);
   const [completed, setCompleted] = useState(new Set());
+  const [openStory, setOpenStory] = useState(null);
 
   const toggleComplete = (id) => {
     setCompleted((prev) => {
@@ -155,6 +160,10 @@ export default function Kids() {
                         {s.age} · Moral: {s.moral}
                       </p>
                       <p className="meta">{s.summary}</p>
+                      <button type="button" className="btn btn--quiet btn--sm kids-story-toggle" aria-expanded={openStory === s.title} onClick={() => setOpenStory(openStory === s.title ? null : s.title)}>
+                        {openStory === s.title ? "Close story" : "Read story"}
+                      </button>
+                      {openStory === s.title ? <p className="kids-story" tabIndex="0">{s.story}</p> : null}
                     </div>
                   </div>
                 </Card>

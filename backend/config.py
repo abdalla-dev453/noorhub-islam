@@ -54,6 +54,7 @@ class Config:
     # ── CORS ─────────────────────────────────────────────────────────────────
     ALLOWED_ORIGIN = os.getenv("ALLOWED_ORIGIN", "http://localhost:5173")
     API_ORIGIN = os.getenv("API_ORIGIN", "http://localhost:5000")
+    YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
 
     if APP_ENV == "production":
         if DEBUG:

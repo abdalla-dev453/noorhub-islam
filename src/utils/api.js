@@ -9,6 +9,8 @@ const HADITH_BASE = "https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1";
 const HADITH_CACHE_TTL = 1000 * 60 * 10;
 const hadithCache = new Map();
 const OFFLINE_DB = "noorhub-offline-content";
+const BACKEND_BASE = (import.meta.env.VITE_API_BASE ?? "http://localhost:5000").replace(/\/$/, "");
+const youtubeSearchUrl = (query) => `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
 
 /**
  * Resolve to `fallback` if IndexedDB does not answer in time. A blocked or
@@ -102,6 +104,55 @@ async function requestHadithPayload(bookSlug, signal) {
 }
 
 export const api = {
+  async getLatestLessons({ signal } = {}) {
+    try {
+      const response = await fetch(`${BACKEND_BASE}/api/lessons/latest`, {
+        signal,
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error(`Lesson feed request failed (${response.status})`);
+      const payload = await response.json();
+      if (!Array.isArray(payload?.items) || payload.items.length === 0) {
+        throw new Error("No recent lessons were returned");
+      }
+      return payload;
+    } catch (error) {
+      if (signal?.aborted || error.name === "AbortError") throw error;
+      console.warn("Using the saved lesson list because the live feed is unavailable:", error);
+      return {
+        items: await this.getRecentAndOngoingLessons(),
+        updatedAt: null,
+        sourceCount: 0,
+        isFallback: true,
+      };
+    }
+  },
+
+  async searchLessons(query, { signal, pageToken = "" } = {}) {
+    const term = String(query || "").trim();
+    if (term.length < 2) throw new Error("Enter at least two characters to search.");
+    const params = new URLSearchParams({ q: term });
+    if (pageToken) params.set("pageToken", pageToken);
+    const response = await fetch(`${BACKEND_BASE}/api/lessons/search?${params}`, {
+      signal,
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (response.status === 503) {
+      const feed = await this.getLatestLessons({ signal });
+      const terms = term.toLowerCase().split(/\s+/).filter(Boolean);
+      const items = feed.items.filter((item) => {
+        const text = `${item.title} ${item.speaker} ${item.description}`.toLowerCase();
+        return terms.some((word) => text.includes(word));
+      });
+      if (items.length) return { items, nextPageToken: "", isRecentFallback: true };
+    }
+    if (!response.ok) throw new Error(payload.error || "Video search failed. Try again.");
+    return payload;
+  },
+
   // ---  Unified Quran Operations Layer ---
 
   async getAllSurahs(signal) {
@@ -127,25 +178,21 @@ export const api = {
     signal,
     { transliteration = false } = {},
   ) {
-    // Dynamically request the chosen reciter edition alongside text data streams
-    const editions = ["quran-uthmani", "en.sahih"];
-    if (transliteration) editions.push("en.transliteration");
-    editions.push(reciterId);
-
-    const payload = await requestJson(
-      QURAN_BASE,
-      `/surah/${surahId}/editions/${editions.join(",")}`,
-      { signal },
-    );
-
-    if (!payload?.data) {
-      throw new Error(
-        `Unexpected API response format for surah details ${surahId}`,
-      );
-    }
-
-    const [arabicEdition, englishEdition, middleEdition, audioEdition] =
-      payload.data ?? [];
+    // Fetch editions separately: the multi-edition endpoint can return them
+    // in a different order, which used to pair Arabic verses with bad audio.
+    const [arabicPayload, englishPayload, transliterationPayload, audioPayload] =
+      await Promise.all([
+        requestJson(QURAN_BASE, `/surah/${surahId}/quran-uthmani`, { signal }),
+        requestJson(QURAN_BASE, `/surah/${surahId}/en.sahih`, { signal }),
+        transliteration
+          ? requestJson(QURAN_BASE, `/surah/${surahId}/en.transliteration`, { signal })
+          : Promise.resolve(null),
+        requestJson(QURAN_BASE, `/surah/${surahId}/${encodeURIComponent(reciterId)}`, { signal }),
+      ]);
+    const arabicEdition = arabicPayload?.data;
+    const englishEdition = englishPayload?.data;
+    const middleEdition = transliterationPayload?.data;
+    const audioEdition = audioPayload?.data;
 
     if (!arabicEdition || !englishEdition || !audioEdition) {
       throw new Error(
@@ -157,7 +204,7 @@ export const api = {
       arabicVerses: arabicEdition.ayahs ?? [],
       englishVerses: englishEdition.ayahs ?? [],
       transliterationVerses: middleEdition?.ayahs ?? [],
-      audioVerses: audioEdition.ayahs ?? [], // Contains dynamic individual verse audio file URL nodes
+      audioVerses: audioEdition.ayahs ?? [], // Contains individual verse audio URLs
     };
   },
 
@@ -238,8 +285,9 @@ export const api = {
 
   // ---  Unified Hadith Operations Layer ---
 
-  async getHadithCollection(bookSlug, signal) {
-    const cachedEntry = hadithCache.get(bookSlug);
+  async getHadithCollection(bookSlug, signal, language = "eng") {
+    const edition = `${language}-${bookSlug.replace(/^eng-/, "")}`;
+    const cachedEntry = hadithCache.get(edition);
     const now = Date.now();
 
     if (cachedEntry && now - cachedEntry.timestamp < HADITH_CACHE_TTL) {
@@ -247,10 +295,10 @@ export const api = {
     }
 
     if (cachedEntry) {
-      hadithCache.delete(bookSlug);
+      hadithCache.delete(edition);
     }
 
-    const payload = await requestHadithPayload(bookSlug, signal);
+    const payload = await requestHadithPayload(edition, signal);
 
     const hadiths = payload?.hadiths ?? payload?.data ?? payload;
 
@@ -273,8 +321,22 @@ export const api = {
       })
       .filter(Boolean);
 
-    hadithCache.set(bookSlug, { data: normalized, timestamp: Date.now() });
+    hadithCache.set(edition, { data: normalized, timestamp: Date.now() });
     return normalized;
+  },
+
+  async getHadithTranslations(bookSlug, signal) {
+    const payload = await requestJson(HADITH_BASE, "/editions.json", { signal });
+    const key = bookSlug.replace(/^eng-/, "");
+    const book = payload?.[key];
+    if (!Array.isArray(book?.collection)) return [{ code: "eng", name: "English" }];
+    return book.collection
+      .map((edition) => ({
+        code: edition.name.split("-")[0],
+        name: edition.language,
+      }))
+      .filter((edition, index, all) => all.findIndex((candidate) => candidate.code === edition.code) === index)
+      .sort((a, b) => a.name.localeCompare(b.name));
   },
 
   // --- Unified Islamic Learning & Live Lessons API Layer ---
@@ -288,18 +350,18 @@ export const api = {
     const LESSON_FEED = [
       {
         id: "live-1",
-        title: "Judgement Day Series: The Signs of the Hour & Eternity",
+        title: "The End Times: Everything You Need to Know | Signs of the Hour Ep. 1",
         speaker: "Sheikh Omar Suleiman",
         institution: "Yaqeen Institute",
         category: "Theology",
-        status: "Live Now",
-        isLive: true,
-        duration: "45 mins",
-        viewers: "3.4k watching",
-        date: "Live Stream",
-        videoUrl: "https://www.youtube.com/watch?v=F3tW30l5yE0",
-        embedId: "F3tW30l5yE0",
-        thumbnail: "https://img.youtube.com/vi/F3tW30l5yE0/hqdefault.jpg",
+        status: "Recent Lecture",
+        isLive: false,
+        duration: "56 mins",
+        viewers: "",
+        date: "Recent Lecture",
+        videoUrl: "https://www.youtube.com/watch?v=MQ26cRMV4lU",
+        embedId: "MQ26cRMV4lU",
+        thumbnail: "https://img.youtube.com/vi/MQ26cRMV4lU/hqdefault.jpg",
         description: "An intensive breakdown of the theological milestones preceding the Day of Resurrection, exploring faith, preparation, and spiritual tranquility.",
         keyPoints: [
           "Understanding the lesser and greater signs in light of authentic Ahadith",
@@ -309,7 +371,7 @@ export const api = {
       },
       {
         id: "rec-1",
-        title: "Chronological Biography of Prophet Muhammad ﷺ - Part 1: Pre-Islamic Arabia",
+        title: "Why Study the Seerah? Pre-Islamic Arabia",
         speaker: "Dr. Yasir Qadhi",
         institution: "Memphis Islamic Center",
         category: "History",
@@ -318,9 +380,9 @@ export const api = {
         duration: "1h 12m",
         viewers: "1.2M views",
         date: "Recent Lecture",
-        videoUrl: "https://www.youtube.com/watch?v=VOUp3ZX438Y",
-        embedId: "VOUp3ZX438Y",
-        thumbnail: "https://img.youtube.com/vi/VOUp3ZX438Y/hqdefault.jpg",
+        videoUrl: "https://www.youtube.com/watch?v=4F5qzMI2IKs",
+        embedId: "4F5qzMI2IKs",
+        thumbnail: "https://img.youtube.com/vi/4F5qzMI2IKs/hqdefault.jpg",
         description: "The gold standard chronological Seerah series. Detailed examination of the cultural, political, and spiritual state of Arabia before the Prophet's birth.",
         keyPoints: [
           "Lineage of the Quraysh and religious degradation in the Peninsula",
@@ -330,7 +392,7 @@ export const api = {
       },
       {
         id: "rec-2",
-        title: "Mastering Surah Al-Fatihah: The Greatest Chapter Explained Word by Word",
+        title: "The Balance of Words & Ayat in Surah Al-Fatihah (Urdu)",
         speaker: "Ustadh Nouman Ali Khan",
         institution: "Bayyinah Institute",
         category: "Recitation",
@@ -339,9 +401,9 @@ export const api = {
         duration: "38 mins",
         viewers: "840k views",
         date: "Recent Lecture",
-        videoUrl: "https://www.youtube.com/watch?v=aG0K06cT8L4",
-        embedId: "aG0K06cT8L4",
-        thumbnail: "https://img.youtube.com/vi/aG0K06cT8L4/hqdefault.jpg",
+        videoUrl: "https://www.youtube.com/watch?v=jHupWwHX8Qo",
+        embedId: "jHupWwHX8Qo",
+        thumbnail: "https://img.youtube.com/vi/jHupWwHX8Qo/hqdefault.jpg",
         description: "A deep dive into the linguistic structure, rhetorical precision, and spiritual weight of the seven oft-repeated verses in every prayer.",
         keyPoints: [
           "The profound difference between Rahman and Raheem",
@@ -360,9 +422,8 @@ export const api = {
         duration: "52 mins",
         viewers: "620k views",
         date: "Recent Lecture",
-        videoUrl: "https://www.youtube.com/watch?v=Kz6iG_F6R9E",
-        embedId: "Kz6iG_F6R9E",
-        thumbnail: "https://img.youtube.com/vi/Kz6iG_F6R9E/hqdefault.jpg",
+        videoUrl: youtubeSearchUrl("Belal Assaad salah prayer demonstration"),
+        thumbnail: "",
         description: "Learn the exact physical and spiritual postures of Salah as documented in Sahih Bukhari and Muslim with scholarly corrections for common mistakes.",
         keyPoints: [
           "Essential Arkan (pillars) vs Wajibat (obligations) of prayer",
@@ -381,9 +442,8 @@ export const api = {
         duration: "44 mins",
         viewers: "310k views",
         date: "Recent Lecture",
-        videoUrl: "https://www.youtube.com/watch?v=F3r_d8Z7wFw",
-        embedId: "F3r_d8Z7wFw",
-        thumbnail: "https://img.youtube.com/vi/F3r_d8Z7wFw/hqdefault.jpg",
+        videoUrl: youtubeSearchUrl("Shadee Elmasry names and attributes of Allah"),
+        thumbnail: "",
         description: "Discover how knowing the divine names of Allah (Al-Asma' al-Husna) directly heals the heart, builds trust (Tawakkul), and brings peace in daily challenges.",
         keyPoints: [
           "The difference between cognitive knowing and spiritual realization (Ma'rifah)",
@@ -402,9 +462,8 @@ export const api = {
         duration: "34 mins",
         viewers: "2.1M views",
         date: "Recent Lecture",
-        videoUrl: "https://www.youtube.com/watch?v=E6u79oK1xG0",
-        embedId: "E6u79oK1xG0",
-        thumbnail: "https://img.youtube.com/vi/E6u79oK1xG0/hqdefault.jpg",
+        videoUrl: youtubeSearchUrl("Mufti Menk Islamic anxiety hope Allah"),
+        thumbnail: "",
         description: "Practical Islamic guidance for managing stress, overcoming feelings of unworthiness, and reconnecting with the hope of Allah's mercy.",
         keyPoints: [
           "Reframing trials through the Quranic perspective of Sabr and Shukr",
@@ -423,9 +482,8 @@ export const api = {
         duration: "26 mins",
         viewers: "450k views",
         date: "Recent Lecture",
-        videoUrl: "https://www.youtube.com/watch?v=r3k8n9jL2mM",
-        embedId: "r3k8n9jL2mM",
-        thumbnail: "https://img.youtube.com/vi/r3k8n9jL2mM/hqdefault.jpg",
+        videoUrl: youtubeSearchUrl("Wisam Sharieff noon sakinah tajweed"),
+        thumbnail: "",
         description: "Illustrated interactive lesson on the four rules of Noon Sakinah: Izhar, Idgham, Iqlab, and Ikhfa with live vocal demonstrations.",
         keyPoints: [
           "Phonetic explanation of nasalization (Ghunnah)",

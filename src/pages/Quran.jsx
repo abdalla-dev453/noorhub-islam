@@ -45,6 +45,7 @@ export default function Quran() {
 
   const [playingAyahIndex, setPlayingAyahIndex] = useState(null);
   const [paused, setPaused] = useState(false);
+  const [fullPlayback, setFullPlayback] = useState(false);
   const [savedAyahs, setSavedAyahs] = useState(() => readLocal(AYAHS_KEY, {}));
   const [lastReading, setLastReading] = useState(() => readLocal(POSITION_KEY, null));
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -56,6 +57,8 @@ export default function Quran() {
   const [noteDraft, setNoteDraft] = useState("");
 
   const audioRef = useRef(null);
+  const audioQueueRef = useRef(new Map());
+  const forceContinuousRef = useRef(false);
   const pendingAyahRef = useRef(null);
   const handledDeepLink = useRef("");
   const activeTargetRef = useRef({ surah: null, kind: "surah", number: null });
@@ -69,11 +72,15 @@ export default function Quran() {
 
   /* ── Audio ────────────────────────────────────────────────────────────── */
   const stopAudio = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.onended = null;
-      audioRef.current = null;
-    }
+    forceContinuousRef.current = false;
+    setFullPlayback(false);
+    audioQueueRef.current.forEach((element) => {
+      element.pause();
+      element.onended = null;
+      element.onerror = null;
+    });
+    audioQueueRef.current.clear();
+    audioRef.current = null;
     setPlayingAyahIndex(null);
     setPaused(false);
   }, []);
@@ -85,17 +92,38 @@ export default function Quran() {
   const playAudioStream = useCallback((versesArray, index) => {
     const currentAyah = versesArray[index];
     if (!currentAyah?.audio) {
+      setSectionError("Audio is not available for this verse. Choose another reciter or try again later.");
       stopAudio();
       return;
     }
 
-    audioRef.current?.pause();
+    setSectionError("");
     setPlayingAyahIndex(index);
     setPaused(false);
 
-    const element = new Audio(currentAyah.audio);
+    let element = audioQueueRef.current.get(index);
+    if (!element) {
+      element = new Audio(currentAyah.audio);
+      element.preload = "auto";
+      audioQueueRef.current.set(index, element);
+    }
+    audioQueueRef.current.forEach((queued, queuedIndex) => {
+      if (queuedIndex !== index) {
+        queued.pause();
+        queued.onended = null;
+        queued.onerror = null;
+        audioQueueRef.current.delete(queuedIndex);
+      }
+    });
     element.playbackRate = optionsRef.current.speed;
     audioRef.current = element;
+
+    const nextAyah = versesArray[index + 1];
+    if ((forceContinuousRef.current || optionsRef.current.continuous) && nextAyah?.audio && !audioQueueRef.current.has(index + 1)) {
+      const nextElement = new Audio(nextAyah.audio);
+      nextElement.preload = "auto";
+      audioQueueRef.current.set(index + 1, nextElement);
+    }
 
     document
       .getElementById(`ayah-${currentAyah.anchor}`)
@@ -104,14 +132,23 @@ export default function Quran() {
     element.play().catch((error) => {
       console.error("Audio playback interrupted:", error);
       setPlayingAyahIndex(null);
+      setSectionError("Audio could not start. Check your connection and try again.");
     });
+    element.onerror = () => {
+      setPlayingAyahIndex(null);
+      setSectionError("This verse's audio could not be played. Try another reciter or try again later.");
+    };
 
     element.onended = () => {
       const nextIndex = index + 1;
-      if (optionsRef.current.continuous && nextIndex < versesArray.length) {
+      audioQueueRef.current.delete(index);
+      if ((forceContinuousRef.current || optionsRef.current.continuous) && nextIndex < versesArray.length) {
         playAudioStreamRef.current?.(versesArray, nextIndex);
       } else {
+        audioQueueRef.current.clear();
         setPlayingAyahIndex(null);
+        setFullPlayback(false);
+        forceContinuousRef.current = false;
       }
     };
   }, [stopAudio]);
@@ -137,7 +174,11 @@ export default function Quran() {
   };
 
   const playFromStart = () => {
-    if (verses.length > 0) playAudioStream(verses, 0);
+    if (verses.length > 0) {
+      forceContinuousRef.current = true;
+      setFullPlayback(true);
+      playAudioStream(verses, 0);
+    }
   };
 
   /* ── Content loading ──────────────────────────────────────────────────── */
@@ -466,6 +507,7 @@ export default function Quran() {
               kind={activeKind}
               verseCount={verses.length}
               playing={playingAyahIndex !== null && !paused}
+              fullPlayback={fullPlayback}
               loading={sectionLoading}
               onPlayAll={playFromStart}
               onPause={stopAudio}
