@@ -15,9 +15,9 @@
   font-family: var(--font-sans);
   font-size: var(--text-sm);
   font-weight: 500;
-  line-height: 1;
+  line-height: 1.25;
   letter-spacing: var(--tracking-normal);
-  white-space: nowrap;
+  white-space: normal;
   transition: background-color var(--duration-fast) var(--ease),
     border-color var(--duration-fast) var(--ease),
     color var(--duration-fast) var(--ease);
