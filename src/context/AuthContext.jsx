@@ -6,10 +6,10 @@ import {
   useRef,
   useState,
 } from "react";
+import { backendUrl } from "../utils/backend";
 
 const AuthContext = createContext(null);
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:5000";
 const TOKEN_KEY = "noorhub_access_token";
 const REFRESH_KEY = "noorhub_refresh_token";
 
@@ -38,7 +38,7 @@ async function apiRequest(path, options = {}, token = null) {
     ...options.headers,
   };
 
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(backendUrl(path), {
     ...options,
     headers,
   });

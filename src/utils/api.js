@@ -3,13 +3,13 @@
  * Combines official alquran.cloud networks and production Hadith pipelines
  * while safely preserving payload normalization rules, audio streams, and AbortSignals.
  */
+import { backendUrl } from "./backend";
 
 const QURAN_BASE = "https://api.alquran.cloud/v1";
 const HADITH_BASE = "https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1";
 const HADITH_CACHE_TTL = 1000 * 60 * 10;
 const hadithCache = new Map();
 const OFFLINE_DB = "noorhub-offline-content";
-const BACKEND_BASE = (import.meta.env.VITE_API_BASE ?? "http://localhost:5000").replace(/\/$/, "");
 const youtubeSearchUrl = (query) => `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
 
 /**
@@ -106,7 +106,7 @@ async function requestHadithPayload(bookSlug, signal) {
 export const api = {
   async getLatestLessons({ signal } = {}) {
     try {
-      const response = await fetch(`${BACKEND_BASE}/api/lessons/latest`, {
+      const response = await fetch(backendUrl("/api/lessons/latest"), {
         signal,
         headers: { Accept: "application/json" },
         cache: "no-store",
@@ -134,7 +134,7 @@ export const api = {
     if (term.length < 2) throw new Error("Enter at least two characters to search.");
     const params = new URLSearchParams({ q: term });
     if (pageToken) params.set("pageToken", pageToken);
-    const response = await fetch(`${BACKEND_BASE}/api/lessons/search?${params}`, {
+    const response = await fetch(`${backendUrl("/api/lessons/search")}?${params}`, {
       signal,
       headers: { Accept: "application/json" },
       cache: "no-store",
