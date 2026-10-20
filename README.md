@@ -77,6 +77,13 @@ src/
 
 ##  Local Deployment Blueprint
 
+### Production API URL
+
+The deployed frontend uses `https://noorhub-islam.onrender.com` as its API URL.
+Set `VITE_API_BASE` in the frontend hosting environment only when overriding that
+URL; the variable is embedded at build time. Local development uses
+`http://localhost:5000` when it is not set.
+
 Follow these steps to deploy a local development server instance onto your workspace:
 
 ### 1. Clone the Source Manifest
